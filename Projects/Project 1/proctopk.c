@@ -20,7 +20,7 @@ struct freqTable{
 #define MAX_LETTERS 64 
 
 // Function Declaration
-void findKMostWords(char fileName[]);
+struct freqTable* findMostKWords(char fileName[], int k);
 
 // Program Start
 
@@ -60,6 +60,27 @@ int main(int argc, char *argv[])
         if(fork() == 0) {
 
             // Find the k-most occuring words
+            struct freqTable* oneTable = findMostKWords(fileNames[i], kMostWords);
+
+            // Test Purpose
+
+            /*
+            printf("%s", "-----------------------------------------\n"); 
+
+            for (int i = 0; i < kMostWords; i++) {
+
+                char w[strlen(oneTable[i].word)];
+                strcpy(w, oneTable[i].word);
+                printf("%s%s%s", "Word: ", w, " Frequency: ");
+                printf("%d", oneTable[i].frequency);
+                printf("\n");
+
+            }
+            */
+
+            // Write the most used k words to shared memory 
+            // TO-DO
+
             exit(0);
         }
     }
@@ -70,9 +91,10 @@ int main(int argc, char *argv[])
 }
 
 
-void findKMostWords(char fileName[]) {
+struct freqTable* findMostKWords(char fileName[], int k) {
 
-    FILE* fp = fopen("test.txt", "r");
+
+    FILE* fp = fopen(fileName, "r");
     char buffer[1000];
     struct freqTable table [1000];
     int cnt = 0;
@@ -91,9 +113,8 @@ void findKMostWords(char fileName[]) {
             oneLine[i] = toupper(oneLine[i]);
         }
 
-        // Takes a single word from the line
         char* singleWord;
-        singleWord = strtok(oneLine, " ");
+        singleWord = strtok(oneLine, " ,.?\"()");
 
         while(singleWord != NULL) {
 
@@ -102,29 +123,24 @@ void findKMostWords(char fileName[]) {
 
             for (int i = 0; i < cnt; i++) {
 
-                // If the word is present, increase the frequency
                 if(!strcmp(table[i].word,singleWord)) {
 
                     table[i].frequency++;
                     found = 1;
                     break;
-
                 }       
             }
 
+            // If the word is not present, create a new entry and increment the counter.
             if(!found){
-
-                // If the word is not present, create a new entry and increment the counter.   
+                        
                 strcpy(table[cnt].word,singleWord);
                 table[cnt].frequency = 1;
                 cnt++;
             } 
-
-            // Get the next word
-            singleWord = strtok(NULL, " ");
             
+            singleWord = strtok(NULL, " .,?\"()")
         }
-         
     }
 
     for (int i = 0; i < cnt; i++) {
@@ -136,7 +152,31 @@ void findKMostWords(char fileName[]) {
         printf("\n");
 
     }
-    fclose(fp);
+    // Find most occuring k words:
 
-    
+    struct freqTable* tablek = malloc(sizeof(struct freqTable) * k);
+
+    for(int i = 0; i < k; i++) {
+
+        int max = 0;
+        int index = -1;
+        for(int a = 0; a < cnt; a++) {
+
+            if(table[a].frequency > max) {
+
+                max = table[a].frequency;
+                index = a;
+            }
+        }
+
+        // Enter the most used word for each loop.
+        tablek[i].frequency = max;
+        strcpy(tablek[i].word,table[index].word);
+
+        // Used value, set frequency to -1.
+        table[index].frequency = -1;
+    }
+
+    fclose(fp);
+    return tablek;
 }
