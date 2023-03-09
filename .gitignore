@@ -52,3 +52,5 @@ Mkfile.old
 dkms.conf
 Projects/**/out.txt
 Projects/**/memleak.txt
+proctopk
+threadtopk
