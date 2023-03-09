@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (file_to_process.status == -1) {
-                    exit(0);
+                    goto fork_end;
                 }
 
                 // Find the k-most occuring words
@@ -122,6 +122,7 @@ int main(int argc, char* argv[]) {
 
                 free(most_frequent_words);
 
+            fork_end:
                 // NOTE: Normally we already free these in the parent process (see end of the main),
                 // but we are doing it here as well to avoid memory leaks as Valgrind labels them
                 // as "still reachable" inside the child processes.
