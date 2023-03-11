@@ -12,17 +12,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-typedef struct {
-    char* file_name;
-    int status; // 0 -> not processed, 1 -> processed, or being processed
-} FileInfo;
-
 const char* SM_NAME = "proctopk_shared_memory"; // A global variable for the shared memory name,
                                                 //  as stated in the project description
-FileInfo* file_names = NULL; // Global "filenames table" as stated in the project description
-                             // It will be initialized in the main function, but for now it is
-                             // declared as NULL. It will store a pointer to an array of strings
-                             // located in the heap. Each string will be a corresponding file name.
+char** file_names = NULL; // Global "filenames table" as stated in the project description
+                          // It will be initialized in the main function, but for now it is
+                          // declared as NULL. It will store a pointer to an array of strings
+                          // located in the heap. Each string will be a corresponding file name.
 
 // Program Start
 
@@ -65,12 +60,10 @@ int main(int argc, char* argv[]) {
         }
 
         // Global "filenames table" as stated in the project description
-        file_names = malloc(sizeof(FileInfo) * number_of_files);
-        memset(file_names, 0, sizeof(FileInfo) * number_of_files);
+        file_names = malloc(sizeof(char*) * number_of_files);
         for (int i = 0; i < number_of_files; i++) {
-            file_names[i].file_name = malloc(sizeof(char) * (strlen(argv[i + 4]) + 1));
-            strcpy(file_names[i].file_name, argv[i + 4]);
-            file_names[i].status = 0;
+            file_names[i] = malloc(sizeof(char) * (strlen(argv[i + 4]) + 1));
+            strcpy(file_names[i], argv[i + 4]);
         }
 
         // Create a shared memory segment
@@ -97,37 +90,21 @@ int main(int argc, char* argv[]) {
 
             else if (pid == 0) {
                 // Child logic
-                // Find a file to process
-                FileInfo file_to_process = {NULL, 0};
-                for (int i = 0; i < number_of_files; i++) {
-                    if (file_names[i].status == 0) {
-                        file_to_process.file_name = file_names[i].file_name;
-                        file_names[i].status = 1;
-                        break;
-                    }
-                    file_to_process.status = -1;
-                }
+                // Find the K-most occuring words
+                FreqRecord* most_frequent_words =
+                    find_most_k_freq_words_from_file(file_names[i], k_most_frequent_words, NULL, 1);
 
-                if (file_to_process.status == -1) {
-                    goto fork_end;
-                }
-
-                // Find the k-most occuring words
-                FreqRecord* most_frequent_words = find_most_k_freq_words_from_file(
-                    file_names[i].file_name, k_most_frequent_words);
-
-                // Copy the k-most occuring words to the shared memory segment
+                // Copy the K-most occuring words to the shared memory segment
                 memcpy(shm_ptr + i * k_most_frequent_words * sizeof(FreqRecord),
                        most_frequent_words, k_most_frequent_words * sizeof(FreqRecord));
 
                 free(most_frequent_words);
 
-            fork_end:
                 // NOTE: Normally we already free these in the parent process (see end of the main),
                 // but we are doing it here as well to avoid memory leaks as Valgrind labels them
                 // as "still reachable" inside the child processes.
                 for (int i = 0; i < number_of_files; i++) {
-                    free(file_names[i].file_name);
+                    free(file_names[i]);
                 }
                 free(file_names);
                 close(shm_fd);
@@ -146,23 +123,25 @@ int main(int argc, char* argv[]) {
             wait(NULL);
         }
 
-        // Print the contents of the shared memory segment
+        // Create a frequency table from the shared memory segment
         FreqTable* shm_ptr_freq_table =
             new_freq_table_from_freq_records((FreqRecord*)shm_ptr, sm_item_count);
-        merge_duplicate_freq_records(shm_ptr_freq_table);
+
+        int* length = malloc(sizeof(int));
 
         FreqRecord* final_freq_records =
-            find_most_k_freq_words_from_freq_table(shm_ptr_freq_table, k_most_frequent_words);
+            find_most_k_freq_words_from_freq_table(shm_ptr_freq_table, k_most_frequent_words, length);
 
-        print_to_file(argv[2], final_freq_records, k_most_frequent_words);
+        print_to_file(argv[2], final_freq_records, *length);
 
         free_freq_table(shm_ptr_freq_table);
 
         for (int i = 0; i < number_of_files; i++) {
-            free(file_names[i].file_name);
+            free(file_names[i]);
         }
         free(file_names);
 
+        free(length);
         free(final_freq_records);
 
         // Close the shared memory segment

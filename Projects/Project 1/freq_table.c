@@ -18,12 +18,16 @@ FreqTable* new_freq_table(int capacity) {
 }
 
 FreqTable* new_freq_table_from_freq_records(FreqRecord* records, int size) {
-    FreqTable* ft = new_freq_table(size);
+    FreqTable* ft = new_freq_table(1);
     for (int i = 0; i < size; i++) {
-        copy_word_to_word(ft->records[i].word, records[i].word, strlen(records[i].word));
-        ft->records[i].frequency = records[i].frequency;
+        if (records[i].frequency <= 0 || strlen(records[i].word) == 0) {
+            continue;
+        }
+
+        else {
+            add_freq_record(ft, &records[i]);
+        }
     }
-    ft->size = size;
     return ft;
 }
 

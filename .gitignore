@@ -50,7 +50,7 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
-Projects/**/out.txt
+Projects/**/out*.txt
 Projects/**/memleak.txt
 proctopk
 threadtopk

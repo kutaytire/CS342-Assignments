@@ -4,7 +4,7 @@ FreqTable* get_file_word_freq_table(char* file_name) {
     // Open the file
     FILE* file = fopen(file_name, "r");
     if (file == NULL) {
-        printf("%s\n", "File could not be opened.");
+        fprintf(stderr, "File could not be opened!");
         exit(-1);
     }
 
@@ -53,11 +53,11 @@ FreqTable* get_file_word_freq_table(char* file_name) {
     return freq_table;
 }
 
-FreqRecord* find_most_k_freq_words_from_file(char* file_name, int k) {
+FreqRecord* find_most_k_freq_words_from_file(char* file_name, int k, int* new_k, int force_fill) {
     FreqTable* freq_table = get_file_word_freq_table(file_name);
     heap_sort(freq_table, freq_table->size); // Sort the frequency table
 
-    // + Can we assume an input file contains at least k words?
+    // + Can we assume an input file contains at least K words?
     // - We can not assume that. The result may be less than K words.
     int s;
     if (k > freq_table->size) {
@@ -68,21 +68,37 @@ FreqRecord* find_most_k_freq_words_from_file(char* file_name, int k) {
         s = k;
     }
 
-    FreqRecord* most_k_freq_words = malloc(sizeof(FreqRecord) * s);
+    // If force_fill is true, we will return an array of size K
+    // We do this in order to maintain memory alignment when we use POSIX shared memory
+    FreqRecord* most_k_freq_words = malloc(sizeof(FreqRecord) * (force_fill ? k : s));
     for (int i = 0; i < s; i++) {
         most_k_freq_words[i].frequency = freq_table->records[i].frequency;
         copy_word_to_word(most_k_freq_words[i].word, freq_table->records[i].word,
                           strlen(freq_table->records[i].word));
     }
 
+    // If force_fill is true, we will fill the rest of the array with invalid values
+    if (force_fill) {
+        for (int i = s; i < k; i++) {
+            most_k_freq_words[i].frequency = -1;
+            copy_word_to_word(most_k_freq_words[i].word, "", 0);
+        }
+    }
+
     free_freq_table(freq_table);
+
+    if (new_k != NULL) {
+        *new_k = s;
+    }
+
     return most_k_freq_words;
 }
 
-FreqRecord* find_most_k_freq_words_from_freq_table(FreqTable* ft, int k) {
+FreqRecord* find_most_k_freq_words_from_freq_table(FreqTable* ft, int k, int* new_k) {
     heap_sort(ft, ft->size); // Sort the frequency table
 
-    // Same as above
+    // + Can we assume an input file contains at least K words?
+    // - We can not assume that. The result may be less than K words.
     int s;
     if (k > ft->size) {
         s = ft->size;
@@ -97,6 +113,10 @@ FreqRecord* find_most_k_freq_words_from_freq_table(FreqTable* ft, int k) {
         most_k_freq_words[i].frequency = ft->records[i].frequency;
         copy_word_to_word(most_k_freq_words[i].word, ft->records[i].word,
                           strlen(ft->records[i].word));
+    }
+
+    if (new_k != NULL) {
+        *new_k = s;
     }
 
     return most_k_freq_words;
