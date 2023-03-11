@@ -64,7 +64,7 @@ void add_freq_record(FreqTable* ft, FreqRecord* fr) {
     // First check if the word is already in the table
     int index = check_word(ft, fr->word);
     if (index != -1) {
-        ft->records[index].frequency++;
+        ft->records[index].frequency += fr->frequency;
         return;
     }
 
