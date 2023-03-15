@@ -43,7 +43,7 @@ res_for_fixed_k = {
 }
 
 build_fresh = True
-plot_fresh = True
+plot_fresh = False
 
 # src_dir = "./Projects/Project 1"
 src_dir = ".."
