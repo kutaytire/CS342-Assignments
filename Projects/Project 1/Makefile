@@ -18,7 +18,7 @@ $(BIN)/$(EXECUTABLE1): $(SRC)/$(EXECUTABLE1).c $(SRC)/file_processor.c $(SRC)/fr
 	@$(CXX) $(CXX_FLAGS) $^ -o $@
 
 $(BIN)/$(EXECUTABLE2): $(SRC)/$(EXECUTABLE2).c $(SRC)/file_processor.c $(SRC)/freq_table.c
-	@$(CXX) $(CXX_FLAGS) $^ -o $@
+	@$(CXX) $(CXX_FLAGS) $^ -lpthread -o $@
 
 clean:
 	@-rm -rf $(SRC)/$(EXECUTABLE1) $(SRC)/$(EXECUTABLE1).o $(SRC)/$(EXECUTABLE2) $(SRC)/$(EXECUTABLE2).o *~
