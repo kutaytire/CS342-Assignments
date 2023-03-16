@@ -106,12 +106,28 @@ void heapify(FreqTable* ft, int size, int index) {
     int left = 2 * index + 1;
     int right = 2 * index + 2;
 
-    if (left < size && ft->records[left].frequency < ft->records[min].frequency) {
-        min = left;
+    if (left < size) {
+        if (ft->records[left].frequency < ft->records[min].frequency) {
+            min = left;
+        }
+
+        else if (ft->records[left].frequency == ft->records[min].frequency) {
+            if (strcmp(ft->records[left].word, ft->records[min].word) > 0) {
+                min = left;
+            }
+        }
     }
 
-    if (right < size && ft->records[right].frequency < ft->records[min].frequency) {
-        min = right;
+    if (right < size) {
+        if (ft->records[right].frequency < ft->records[min].frequency) {
+            min = right;
+        }
+
+        else if (ft->records[right].frequency == ft->records[min].frequency) {
+            if (strcmp(ft->records[right].word, ft->records[min].word) > 0) {
+                min = right;
+            }
+        }
     }
 
     if (min != index) {
