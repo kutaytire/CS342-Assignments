@@ -32,6 +32,7 @@ int l1 = DEFAULT_L1;
 int l2 = DEFAULT_L2;
 
 queue_t* queue;
+queue_t* history_queue;
 pthread_mutex_t lock;
 
 
@@ -89,6 +90,7 @@ int main(int argc, char* argv[]) {
 
     // common queue for single-queue scheduling algorithm
     queue = queue_create();
+    history_queue = queue_create();
     pthread_mutex_init(&lock, NULL);
     pthread_t threads[number_of_processors];
 
@@ -97,6 +99,7 @@ int main(int argc, char* argv[]) {
     for(int i = 0; i < number_of_processors; i++) {
 
         if (strcmp(algorithm, "FCFS") == 0) {
+            scheduler_args_t args = {.source_queue = queue, .time_quantum = -1, .history_queue = history_queue};
 
             if (pthread_create(&threads[i], NULL, fcfs, NULL ) != 0) {
                 printf("Error: Thread creation failed.\n");
