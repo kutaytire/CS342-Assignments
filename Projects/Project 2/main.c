@@ -410,4 +410,161 @@ void update_queue_s(char* tasks_source) {
     free(line);
 }
 
-void update_queue_m(char* tasks_source) { return; }
+void update_queue_m(char* tasks_source) { 
+
+    // Open the file
+    FILE* fp = fopen(tasks_source, "r");
+
+    if (fp == NULL) {
+        printf("Failed to open the input file: %s\n", tasks_source);
+        exit(1);
+    }
+
+    char* line = NULL;
+    size_t len = 0;
+
+    regex_t regex; // To check if the line is in the correct format
+
+    int current_iat = 0;
+    int last_pid = 1;
+    start_time = gettimeofday_ms();
+
+    while (getline(&line, &len, fp) != -1) {
+        // find new line
+        char* ptr = strchr(line, '\n');
+        // if new line found replace with null character
+        if (ptr) {
+            *ptr = '\0';
+        }
+
+        // printf("line: %s\n", (line));
+
+        // Each line should follow the format:
+        // PL <int> or IAT <int>
+        // If the line is not in the correct format, exit the program
+        regcomp(&regex, "^(PL|IAT) [0-9]+$", REG_EXTENDED);
+        if (regexec(&regex, line, 0, NULL, 0) != 0) {
+            printf(
+                "Invalid line encountered in the input file: %s => Line: %s\nExiting the program!",
+                tasks_source, line);
+            exit(-1);
+        }
+
+        else {
+            if (strncmp(line, "PL", 2) == 0) {
+                if (atoi(line + 3) < 0) {
+                    printf("Invalid burst length in the input file: %s => Line: %s\nExiting the "
+                           "program!",
+                           tasks_source, line);
+                }
+
+                // Create a new PCB
+                pcb_t pcb = {.pid = last_pid,
+                             .burst_length = atoi(line + 3),
+                             .arrival_time = -1,
+                             .remaining_time = atoi(line + 3),
+                             .finish_time = -1,
+                             .turnaround_time = -1,
+                             .waiting_time = -1,
+                             .id_of_processor = -1,
+                             .is_dummy = 0};
+
+                if (strcpy(queue_selection_method, "RM") == 0) {
+
+                    int queue_id = last_pid % number_of_processors;
+                    pthread_mutex_lock(&processor_queue_locks[queue_id]);
+
+                    pcb.arrival_time = gettimeofday_ms() - start_time;
+                    if (strcmp(algorithm, "SJF") == 0) {
+
+                        queue_sorted_enqueue(processor_queues[queue_id], pcb);
+                    } 
+                    else {
+
+                        queue_enqueue(processor_queues[queue_id], pcb);
+                    }
+
+                    pthread_mutex_unlock(&processor_queue_locks[queue_id]);
+                    pthread_cond_signal(&processor_queue_conds[queue_id]);
+
+                }
+                else {
+                    
+                    pthread_mutex_lock(&processor_queue_locks[0]);
+                    int min_load = get_queue_load(processor_queues[0]);
+                    int id_of_min = 0;
+                    pthread_mutex_unlock(&processor_queue_locks[0]);
+
+                    for (int i = 1; i < number_of_processors; i++) {
+
+                        pthread_mutex_lock(&processor_queue_locks[i]);
+                        int load = get_queue_load(processor_queues[i]);
+
+                        if(load < min_load) {
+
+                            min_load = load;
+                            id_of_min = i;
+                        }
+
+                        else if (load == min_load) {
+
+                            id_of_min = (i < id_of_min) ? i:id_of_min;
+                        }
+
+                        pthread_mutex_unlock(&processor_queue_locks[i]);
+                    }
+
+                    pthread_mutex_lock(&processor_queue_locks[id_of_min]);
+
+                    pcb.arrival_time = gettimeofday_ms() - start_time;
+                    if (strcmp(algorithm, "SJF") == 0) {
+
+                        queue_sorted_enqueue(processor_queues[id_of_min], pcb);
+                    } 
+                    else {
+
+                        queue_enqueue(processor_queues[id_of_min], pcb);
+                    }
+
+                    pthread_mutex_unlock(&processor_queue_locks[id_of_min]);
+                    pthread_cond_signal(&processor_queue_conds[id_of_min]);
+
+                }
+                last_pid++;
+            }
+            else if (strncmp(line, "IAT", 3) == 0) {
+                int iat = atoi(line + 4);
+
+                if (iat < 0) {
+                    printf("Invalid IAT in the input file: %s => Line: %s\nExiting the "
+                           "program!",
+                           tasks_source, line);
+                    exit(-1);
+                }
+
+                current_iat += iat;
+
+                usleep(iat * 1000);
+
+            } 
+            else {
+                printf("Invalid line encountered in the input file: %s\nLine: %s\n", tasks_source,
+                       line);
+                exit(-1);
+            }
+        }
+    }
+
+    // Add a dummy item to each queue
+
+    for (int i = 0; i < number_of_processors; i++) {
+
+        pthread_mutex_lock(&processor_queue_locks[i]);
+        queue_enqueue(processor_queues[i], dummy_pcb);
+
+        pthread_mutex_unlock(&processor_queue_locks[i]);
+        pthread_cond_signal(&processor_queue_conds[i]);
+    }
+    fclose(fp);
+    free(line);
+}

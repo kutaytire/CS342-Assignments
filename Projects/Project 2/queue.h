@@ -24,5 +24,6 @@ void queue_sorted_enqueue(queue_t* queue, queue_item_t item);
 queue_item_t queue_dequeue(queue_t* queue);
 void queue_sort(queue_t* queue);
 void print_queue(queue_t* queue);
+int get_queue_load(queue_t* q);
 
 #endif // __QUEUE_H__
