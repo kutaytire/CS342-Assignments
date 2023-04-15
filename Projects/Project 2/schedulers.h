@@ -2,15 +2,21 @@
 #define __SCHEDULERS_H__
 
 #include "queue.h"
+#include <pthread.h>
 
 typedef struct {
     queue_t* source_queue;
     int time_quantum;
     queue_t* history_queue;
+    int id_of_processor;
+    char outmode;
+    pthread_cond_t* queue_generator_cond;
+    pthread_mutex_t* queue_generator_lock;
+    pthread_mutex_t* history_queue_lock;
 } scheduler_args_t;
 
 void* fcfs(void* args);
-void* round_robin(void* args);
-void* sjf();
+void* sjf(void* args);
+void* rr(void* args);
 
 #endif // __SCHEDULERS_H__

@@ -12,7 +12,8 @@ typedef struct {
     long long finish_time;
     int turnaround_time;
     long long waiting_time;
-    pthread_t id_of_processor; // id of the thread that is running the process
+    int id_of_processor; // id of the thread that is running the process
+    int is_dummy;
 } pcb_t;
 
 #endif // __PCB_H__

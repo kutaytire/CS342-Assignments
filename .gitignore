@@ -58,6 +58,7 @@ Projects/**/memleak.txt
 proctopk
 threadtopk
 iliad.txt
+mps
 
 ### Python ###
 # Byte-compiled / optimized / DLL files

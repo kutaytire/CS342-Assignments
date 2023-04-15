@@ -20,6 +20,9 @@ typedef struct {
 queue_t* queue_create();
 void queue_destroy(queue_t* queue);
 void queue_enqueue(queue_t* queue, queue_item_t item);
+void queue_sorted_enqueue(queue_t* queue, queue_item_t item);
 queue_item_t queue_dequeue(queue_t* queue);
+void queue_sort(queue_t* queue);
+void print_queue(queue_t* queue);
 
 #endif // __QUEUE_H__
