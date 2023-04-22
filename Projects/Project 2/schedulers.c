@@ -20,22 +20,28 @@ void* fcfs(void* args) {
     // Get the history queue
     queue_t* history_queue = scheduler_args->history_queue;
 
-    while (flag) {
+    int count = 0;
+
+    while (1) {
         // Lock the queue
         pthread_mutex_lock(scheduler_args->queue_generator_lock);
 
         while (!(queue->size > 0)) {
+
+            printf("%s%d%s\n", "Cpu ", scheduler_args->id_of_processor, " is waiting ");
             pthread_cond_wait(scheduler_args->queue_generator_cond,
                               scheduler_args->queue_generator_lock);
         }
 
+        printf("%s%d%s\n", "Cpu ", scheduler_args->id_of_processor, " is processing ");
         // Get the next process
         pcb_t item = queue_dequeue(queue);
         if (item.is_dummy != 0) {
-            flag = 0;
-
+            
+            queue_enqueue(queue, item);
+            printf("%s%d%s\n", "Cpu ", scheduler_args->id_of_processor, " is exiting ");
+            pthread_cond_signal(scheduler_args->queue_generator_cond);
             pthread_mutex_unlock(scheduler_args->queue_generator_lock);
-
             break;
         }
 
@@ -60,8 +66,12 @@ void* fcfs(void* args) {
         pthread_mutex_lock(scheduler_args->history_queue_lock);
         queue_enqueue(history_queue, item);
         pthread_mutex_unlock(scheduler_args->history_queue_lock);
+        count++;
+        printf("%s%d%s%d\n", "Cpu ", scheduler_args->id_of_processor, " finished iteration ", count);
     }
 
+
+    printf("%s%d%s\n", "Cpu ", scheduler_args->id_of_processor, " is exiting due flag");
     return NULL;
 }
 

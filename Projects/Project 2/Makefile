@@ -12,7 +12,7 @@ run: all
 	clear
 	./$(BIN)/$(EXECUTABLE1)
 
-$(BIN)/$(EXECUTABLE1): $(SRC)/main.c $(SRC)/queue.c $(SRC)/schedulers.c $(SRC)/util.c
+$(BIN)/$(EXECUTABLE1): $(SRC)/mpc_cv.c $(SRC)/queue.c $(SRC)/schedulers.c $(SRC)/util.c
 	@$(CXX) $(CXX_FLAGS) $^ -lpthread -o $@
 
 clean:
