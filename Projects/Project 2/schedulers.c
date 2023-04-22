@@ -33,7 +33,7 @@ void* fcfs(void* args) {
                               scheduler_args->queue_generator_lock);
         }
 
-        printf("%s%d%s\n", "Cpu ", scheduler_args->id_of_processor, " is processing ");
+        
         // Get the next process
         pcb_t item = queue_dequeue(queue);
         if (item.is_dummy != 0) {
@@ -49,6 +49,11 @@ void* fcfs(void* args) {
         // printf("PICKING UP PCB\n");
         // print_pcb(&item);
 
+        if(scheduler_args->outmode == '3') {
+
+            printf("%s%d%s%d%s%lld\n", "Process ", item.pid , " is picked up by processor ", scheduler_args->id_of_processor, " at ", gettimeofday_ms() - start_time);
+        }
+
         pthread_mutex_unlock(scheduler_args->queue_generator_lock);
 
         print_for_outmode(&item, gettimeofday_ms() - start_time, scheduler_args->outmode);
@@ -59,6 +64,11 @@ void* fcfs(void* args) {
         item.finish_time = current_time;
         item.turnaround_time = item.finish_time - item.arrival_time;
         item.waiting_time = item.turnaround_time - item.burst_length;
+
+        if(scheduler_args->outmode == '3') {
+
+            printf("%s%d%s%d%s%lld\n", "Process ", item.pid , " is finished by processor ", scheduler_args->id_of_processor, " at ", gettimeofday_ms() - start_time);
+        }
 
         // printf("FINISHED PCB\n");
         // print_pcb(&item);
@@ -83,7 +93,7 @@ void* sjf(void* args) {
     // Get the history queue
     queue_t* history_queue = scheduler_args->history_queue;
 
-    while (flag) {
+    while (1) {
         // Lock the queue
         pthread_mutex_lock(scheduler_args->queue_generator_lock);
 
@@ -95,8 +105,10 @@ void* sjf(void* args) {
         // Get the next process
         pcb_t item = queue_dequeue(queue);
         if (item.is_dummy != 0) {
-            flag = 0;
-
+            
+            queue_enqueue(queue, item);
+            printf("%s%d%s\n", "Cpu ", scheduler_args->id_of_processor, " is exiting ");
+            pthread_cond_signal(scheduler_args->queue_generator_cond);
             pthread_mutex_unlock(scheduler_args->queue_generator_lock);
 
             break;
@@ -105,6 +117,11 @@ void* sjf(void* args) {
         item.id_of_processor = scheduler_args->id_of_processor;
         // printf("PICKING UP PCB\n");
         // print_pcb(&item);
+
+        if(scheduler_args->outmode == '3') {
+
+            printf("%s%d%s%d%s%lld\n", "Process ", item.pid , " is picked up by processor ", scheduler_args->id_of_processor, " at ", gettimeofday_ms() - start_time);
+        }
 
         pthread_mutex_unlock(scheduler_args->queue_generator_lock);
 
@@ -119,6 +136,10 @@ void* sjf(void* args) {
 
         // printf("FINISHED PCB\n");
         // print_pcb(&item);
+
+        if(scheduler_args->outmode == '3') {
+            printf("%s%d%s%d%s%lld\n", "Process ", item.pid , " is finished by processor ", scheduler_args->id_of_processor, " at ", gettimeofday_ms() - start_time);
+        }
 
         pthread_mutex_lock(scheduler_args->history_queue_lock);
         queue_enqueue(history_queue, item);

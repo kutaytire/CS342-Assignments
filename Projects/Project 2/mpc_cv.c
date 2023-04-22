@@ -358,7 +358,16 @@ void update_queue_s(char* tasks_source) {
 
                 // printf("Enqueueing a new PCB\n");
                 // print_pcb(&pcb);
+
+                printf("\n%s\n", "main is processing");
                 pcb.arrival_time = gettimeofday_ms() - start_time;
+
+                if(outmode == '3') {
+
+                    printf("%s%d%s%lld\n", "Process ", pcb.pid, " is inserted to queue at ", pcb.arrival_time);
+
+                }
+
                 if (strcmp(algorithm, "SJF") == 0) {
                     queue_sorted_enqueue(queue, pcb);
                 } else {
@@ -367,6 +376,7 @@ void update_queue_s(char* tasks_source) {
 
                 pthread_mutex_unlock(&queue_generator_lock);
 
+                printf("%s\n", "a processor is signaled\n");
                 pthread_cond_signal(&queue_generator_cond);
 
                 last_pid++;
