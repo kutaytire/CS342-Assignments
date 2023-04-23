@@ -27,6 +27,7 @@ int time_quantum = DEFAULT_Q;
 char* input_file = DEFAULT_INFILE;
 char outmode = DEFAULT_OUTMODE;
 char* outfile = DEFAULT_OUTFILE;
+FILE* outfp = NULL;
 int t = DEFAULT_T;
 int t1 = DEFAULT_T1;
 int t2 = DEFAULT_T2;
@@ -239,6 +240,14 @@ int main(int argc, char* argv[]) {
         pthread_cond_init(&processor_queue_conds[i], NULL);
     }
 
+    if (outfile != NULL) {
+        outfp = fopen(outfile, "w");
+        if (outfp == NULL) {
+            printf("Error opening output file: %s\n", outfile);
+            exit(-1);
+        }
+    }
+
     // Create n number of threads to simulate processors
     for (int i = 0; i < number_of_processors; i++) {
         if (strcmp(algorithm, "FCFS") == 0) {
@@ -247,6 +256,7 @@ int main(int argc, char* argv[]) {
             args->time_quantum = -1;
             args->history_queue = history_queue;
             args->id_of_processor = i + 1;
+            args->outfile = outfp;
             args->outmode = outmode;
             args->queue_generator_cond =
                 (scheduling_approach == 'S') ? &queue_generator_cond : &processor_queue_conds[i];
@@ -268,6 +278,7 @@ int main(int argc, char* argv[]) {
             args->time_quantum = -1;
             args->history_queue = history_queue;
             args->id_of_processor = i + 1;
+            args->outfile = outfp;
             args->outmode = outmode;
             args->queue_generator_cond =
                 (scheduling_approach == 'S') ? &queue_generator_cond : &processor_queue_conds[i];
@@ -287,6 +298,7 @@ int main(int argc, char* argv[]) {
             args->time_quantum = time_quantum;
             args->history_queue = history_queue;
             args->id_of_processor = i + 1;
+            args->outfile = outfp;
             args->outmode = outmode;
             args->queue_generator_cond =
                 (scheduling_approach == 'S') ? &queue_generator_cond : &processor_queue_conds[i];
@@ -296,7 +308,7 @@ int main(int argc, char* argv[]) {
 
             if (pthread_create(&threads[i], NULL, rr, (void*)args) != 0) {
                 printf("Error: Thread creation failed.\n");
-                return -1;
+                exit(-1);
             }
         }
     }
@@ -325,11 +337,13 @@ int main(int argc, char* argv[]) {
     // Print the history queue
     pthread_mutex_lock(&history_queue_lock);
 
-    print_history_queue(history_queue);
+    print_history_queue(history_queue, outfp);
 
     pthread_mutex_unlock(&history_queue_lock);
 
     // TODO: Free memory allocated for dynamically allocated strings
+
+    fclose(outfp);
 
     return 0;
 }
@@ -340,7 +354,7 @@ void update_queue_s(char* tasks_source) {
 
     if (fp == NULL) {
         printf("Failed to open the input file: %s\n", tasks_source);
-        exit(1);
+        exit(-1);
     }
 
     char* line = NULL;
@@ -400,7 +414,7 @@ void update_queue_s(char* tasks_source) {
                 pcb.arrival_time = gettimeofday_ms() - start_time;
 
                 print_for_outmode(&pcb, pcb.arrival_time, '3',
-                                  OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE, -999);
+                                  OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE, -999, outfp);
 
                 if (strcmp(algorithm, "SJF") == 0) {
                     queue_sorted_enqueue(queue, pcb);
@@ -441,7 +455,7 @@ void update_queue_s(char* tasks_source) {
     pthread_mutex_lock(&queue_generator_lock);
 
     print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, '3',
-                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE, -999);
+                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE, -999, outfp);
 
     // Add a dummy PCB to the queue to indicate the end of the file
     queue_enqueue(queue, dummy_pcb);
@@ -460,7 +474,7 @@ void update_queue_m(char* tasks_source) {
 
     if (fp == NULL) {
         printf("Failed to open the input file: %s\n", tasks_source);
-        exit(1);
+        exit(-1);
     }
 
     char* line = NULL;
@@ -519,7 +533,8 @@ void update_queue_m(char* tasks_source) {
                     pcb.arrival_time = gettimeofday_ms() - start_time;
 
                     print_for_outmode(&pcb, pcb.arrival_time, '3',
-                                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, queue_id);
+                                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, queue_id,
+                                      outfp);
 
                     if (strcmp(algorithm, "SJF") == 0) {
                         queue_sorted_enqueue(processor_queues[queue_id], pcb);
@@ -552,7 +567,8 @@ void update_queue_m(char* tasks_source) {
                     pcb.arrival_time = gettimeofday_ms() - start_time;
 
                     print_for_outmode(&pcb, pcb.arrival_time, '3',
-                                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min);
+                                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min,
+                                      outfp);
 
                     if (strcmp(algorithm, "SJF") == 0) {
                         queue_sorted_enqueue(processor_queues[id_of_min], pcb);
@@ -592,7 +608,7 @@ void update_queue_m(char* tasks_source) {
         pthread_mutex_lock(&processor_queue_locks[i]);
 
         print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, '3',
-                          OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, i + 1);
+                          OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, i + 1, outfp);
 
         queue_enqueue(processor_queues[i], dummy_pcb);
 
@@ -638,7 +654,7 @@ void update_queue_s_random() {
         pcb.arrival_time = gettimeofday_ms() - start_time;
 
         print_for_outmode(&pcb, pcb.arrival_time, '3', OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE,
-                          -999);
+                          -999, outfp);
 
         if (strcmp(algorithm, "SJF") == 0) {
             queue_sorted_enqueue(queue, pcb);
@@ -679,7 +695,7 @@ void update_queue_s_random() {
     pthread_mutex_lock(&queue_generator_lock);
 
     print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, '3',
-                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE, -999);
+                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE, -999, outfp);
 
     // Add a dummy PCB to the queue to indicate the end of the file
     queue_enqueue(queue, dummy_pcb);
@@ -732,7 +748,7 @@ void update_queue_m_random() {
             pcb.arrival_time = gettimeofday_ms() - start_time;
 
             print_for_outmode(&pcb, pcb.arrival_time, '3',
-                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, queue_id);
+                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, queue_id, outfp);
 
             if (strcmp(algorithm, "SJF") == 0) {
                 queue_sorted_enqueue(processor_queues[queue_id], pcb);
@@ -771,7 +787,7 @@ void update_queue_m_random() {
             pcb.arrival_time = gettimeofday_ms() - start_time;
 
             print_for_outmode(&pcb, pcb.arrival_time, '3',
-                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min);
+                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min, outfp);
 
             if (strcmp(algorithm, "SJF") == 0) {
                 queue_sorted_enqueue(processor_queues[id_of_min], pcb);
@@ -815,7 +831,7 @@ void update_queue_m_random() {
         pthread_mutex_lock(&processor_queue_locks[i]);
 
         print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, '3',
-                          OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, i + 1);
+                          OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, i + 1, outfp);
 
         queue_enqueue(processor_queues[i], dummy_pcb);
 

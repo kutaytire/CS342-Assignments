@@ -38,7 +38,8 @@ void* fcfs(void* args) {
 
             queue_enqueue(queue, item);
             print_for_outmode(NULL, current_time, scheduler_args->outmode,
-                              OUTMODE_3_SETTINGS_CPU_EXITING, scheduler_args->id_of_processor);
+                              OUTMODE_3_SETTINGS_CPU_EXITING, scheduler_args->id_of_processor,
+                              scheduler_args->outfile);
             pthread_cond_signal(scheduler_args->queue_generator_cond);
             pthread_mutex_unlock(scheduler_args->queue_generator_lock);
             break;
@@ -50,7 +51,7 @@ void* fcfs(void* args) {
 
         print_for_outmode(&item, gettimeofday_ms() - start_time, scheduler_args->outmode,
                           OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE,
-                          scheduler_args->id_of_processor);
+                          scheduler_args->id_of_processor, scheduler_args->outfile);
 
         usleep(item.burst_length * 1000);
 
@@ -61,7 +62,8 @@ void* fcfs(void* args) {
         item.waiting_time = item.turnaround_time - item.burst_length;
 
         print_for_outmode(&item, item.finish_time, scheduler_args->outmode,
-                          OUTMODE_3_SETTINGS_PCB_FINISHED, scheduler_args->id_of_processor);
+                          OUTMODE_3_SETTINGS_PCB_FINISHED, scheduler_args->id_of_processor,
+                          scheduler_args->outfile);
 
         pthread_mutex_lock(scheduler_args->history_queue_lock);
         queue_enqueue(history_queue, item);
@@ -98,7 +100,8 @@ void* sjf(void* args) {
             //                   scheduler_args->id_of_processor);
 
             print_for_outmode(NULL, current_time, scheduler_args->outmode,
-                              OUTMODE_3_SETTINGS_CPU_EXITING, scheduler_args->id_of_processor);
+                              OUTMODE_3_SETTINGS_CPU_EXITING, scheduler_args->id_of_processor,
+                              scheduler_args->outfile);
 
             queue_enqueue(queue, item);
             pthread_cond_signal(scheduler_args->queue_generator_cond);
@@ -115,7 +118,7 @@ void* sjf(void* args) {
 
         print_for_outmode(&item, gettimeofday_ms() - start_time, scheduler_args->outmode,
                           OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE,
-                          scheduler_args->id_of_processor);
+                          scheduler_args->id_of_processor, scheduler_args->outfile);
 
         usleep(item.burst_length * 1000);
 
@@ -126,7 +129,8 @@ void* sjf(void* args) {
         item.waiting_time = item.turnaround_time - item.burst_length;
 
         print_for_outmode(&item, item.finish_time, scheduler_args->outmode,
-                          OUTMODE_3_SETTINGS_PCB_FINISHED, scheduler_args->id_of_processor);
+                          OUTMODE_3_SETTINGS_PCB_FINISHED, scheduler_args->id_of_processor,
+                          scheduler_args->outfile);
 
         pthread_mutex_lock(scheduler_args->history_queue_lock);
         queue_enqueue(history_queue, item);
@@ -162,7 +166,8 @@ void* rr(void* args) {
             //                   scheduler_args->id_of_processor);
 
             print_for_outmode(NULL, current_time, scheduler_args->outmode,
-                              OUTMODE_3_SETTINGS_CPU_EXITING, scheduler_args->id_of_processor);
+                              OUTMODE_3_SETTINGS_CPU_EXITING, scheduler_args->id_of_processor,
+                              scheduler_args->outfile);
 
             queue_enqueue(queue, item);
             pthread_cond_signal(scheduler_args->queue_generator_cond);
@@ -186,7 +191,7 @@ void* rr(void* args) {
 
         print_for_outmode(&item, gettimeofday_ms() - start_time, scheduler_args->outmode,
                           OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE,
-                          scheduler_args->id_of_processor);
+                          scheduler_args->id_of_processor, scheduler_args->outfile);
 
         if (item.remaining_time > scheduler_args->time_quantum) {
             usleep(scheduler_args->time_quantum * 1000);
@@ -196,10 +201,10 @@ void* rr(void* args) {
 
             print_for_outmode(&item, current_time, scheduler_args->outmode,
                               OUTMODE_3_SETTINGS_PCB_TIME_SLICE_EXPIRED,
-                              scheduler_args->id_of_processor);
+                              scheduler_args->id_of_processor, scheduler_args->outfile);
             print_for_outmode(&item, current_time, scheduler_args->outmode,
                               OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE,
-                              scheduler_args->id_of_processor);
+                              scheduler_args->id_of_processor, scheduler_args->outfile);
 
             pthread_mutex_lock(scheduler_args->queue_generator_lock);
             queue_enqueue(queue, item);
@@ -213,7 +218,8 @@ void* rr(void* args) {
             item.waiting_time = item.turnaround_time - item.burst_length;
 
             print_for_outmode(&item, item.finish_time, scheduler_args->outmode,
-                              OUTMODE_3_SETTINGS_PCB_FINISHED, scheduler_args->id_of_processor);
+                              OUTMODE_3_SETTINGS_PCB_FINISHED, scheduler_args->id_of_processor,
+                              scheduler_args->outfile);
 
             pthread_mutex_lock(scheduler_args->history_queue_lock);
             queue_enqueue(history_queue, item);

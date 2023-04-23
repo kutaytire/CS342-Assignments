@@ -3,6 +3,7 @@
 
 #include "queue.h"
 #include <pthread.h>
+#include <stdio.h>
 
 typedef struct {
     queue_t* source_queue;
@@ -10,6 +11,7 @@ typedef struct {
     queue_t* history_queue;
     int id_of_processor;
     char outmode;
+    FILE* outfile;
     pthread_cond_t* queue_generator_cond;
     pthread_mutex_t* queue_generator_lock;
     pthread_mutex_t* history_queue_lock;

@@ -128,16 +128,13 @@ void print_queue(queue_t* q) {
 }
 
 int get_queue_load(queue_t* q) {
-
     int total_load = 0;
     queue_node_t* current = q->head;
 
-     while (current != NULL) {
-
+    while (current != NULL) {
         total_load = total_load + current->item.remaining_time;
         current = current->next;
     }
 
     return total_load;
-
 }
