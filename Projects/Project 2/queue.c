@@ -133,8 +133,8 @@ int get_queue_load(queue_t* q) {
     queue_node_t* current = q->head;
 
      while (current != NULL) {
-        
-        total_load = total_load + current->item->remaining_time;
+
+        total_load = total_load + current->item.remaining_time;
         current = current->next;
     }
 

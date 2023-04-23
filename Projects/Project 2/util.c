@@ -16,10 +16,23 @@ void print_pcb(pcb_t* pcb) {
            pcb->turnaround_time, pcb->waiting_time, pcb->id_of_processor);
 }
 
-void print_for_outmode(pcb_t* pcb, long long time, char outmode) {
+void print_for_outmode(pcb_t* pcb, long long time, char outmode, enum outmode_3_settings settings) {
     if (outmode == '2') {
         printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
                pcb->id_of_processor, pcb->pid, pcb->burst_length, pcb->remaining_time);
+    }
+
+    else if (outmode == '3') {
+        if (settings == OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE) {
+            printf("%s (details): ", "A burst is to be added to a queue");
+            printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+               pcb->id_of_processor, pcb->pid, pcb->burst_length, pcb->remaining_time);
+        }
+
+        // else if (settings == OUTMODE_3_SETTINGS_FINISH) {
+        //     printf("%s%d%s%d%s%lld\n", "Process ", pcb->pid, " is finished by processor ",
+        //            pcb->id_of_processor, " at ", time);
+        // }
     }
 }
 
