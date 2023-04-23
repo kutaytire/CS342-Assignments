@@ -5,7 +5,7 @@
 #define DEFAULT_Q 20
 #define DEFAULT_INFILE "in.txt"
 #define DEFAULT_OUTMODE '1'
-#define DEFAULT_OUTFILE "out.txt"
+#define DEFAULT_OUTFILE NULL
 #define DEFAULT_T 200
 #define DEFAULT_T1 10
 #define DEFAULT_T2 1000

@@ -1,6 +1,8 @@
 #include "util.h"
 #include "queue.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/time.h>
 
 long long gettimeofday_ms() {
@@ -16,23 +18,115 @@ void print_pcb(pcb_t* pcb) {
            pcb->turnaround_time, pcb->waiting_time, pcb->id_of_processor);
 }
 
-void print_for_outmode(pcb_t* pcb, long long time, char outmode, enum outmode_3_settings settings) {
+void print_for_outmode(pcb_t* pcb, long long time, char outmode, enum outmode_3_settings settings,
+                       int where) {
     if (outmode == '2') {
-        printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
-               pcb->id_of_processor, pcb->pid, pcb->burst_length, pcb->remaining_time);
+        if (pcb != NULL) {
+            if (pcb->is_dummy != 1) {
+                printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                       pcb->id_of_processor, pcb->pid, pcb->burst_length, pcb->remaining_time);
+            } else {
+                printf("time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, remainingtime=NaN\n",
+                       time, pcb->id_of_processor);
+            }
+        }
     }
 
     else if (outmode == '3') {
         if (settings == OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE) {
-            printf("%s (details): ", "A burst is to be added to a queue");
-            printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
-               pcb->id_of_processor, pcb->pid, pcb->burst_length, pcb->remaining_time);
+            if (where == -999) {
+                printf("[CPU: main] %s (process details): ",
+                       "A burst is to be added to a (ready) queue");
+            } else {
+                printf("[CPU: %d] %s (process details): ", where,
+                       "A burst is to be added to a (ready) queue");
+            }
+            if (pcb != NULL) {
+                if (where == -999) {
+                    if (pcb->is_dummy != 1) {
+                        printf("time=%lld, cpu=main, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                               pcb->pid, pcb->burst_length, pcb->remaining_time);
+                    } else {
+                        printf("time=%lld, cpu=main, pid=dummy process, burstlen=NaN, "
+                               "remainingtime=NaN\n",
+                               time);
+                    }
+                } else {
+                    if (pcb->is_dummy != 1) {
+                        printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                               where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                    } else {
+                        printf("time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                               "remainingtime=NaN\n",
+                               time, where);
+                    }
+                }
+            }
         }
 
-        // else if (settings == OUTMODE_3_SETTINGS_FINISH) {
-        //     printf("%s%d%s%d%s%lld\n", "Process ", pcb->pid, " is finished by processor ",
-        //            pcb->id_of_processor, " at ", time);
-        // }
+        else if (settings == OUTMODE_3_SETTINGS_CPU_EXITING) {
+            if (where == -999) {
+                printf("[CPU: main] %s at time: %lld\n", "A CPU is exiting", time);
+            } else {
+                printf("[CPU: %d] %s at time: %lld\n", where, "A CPU is exiting", time);
+            }
+        }
+
+        else if (settings == OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE) {
+            printf("[CPU: %d] %s (process details): ", where, "A burst is picked for CPU");
+            if (pcb != NULL) {
+                if (pcb->is_dummy != 1) {
+                    printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                           where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                } else {
+                    printf("time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                           "remainingtime=NaN\n",
+                           time, where);
+                }
+            }
+        }
+
+        else if (settings == OUTMODE_3_SETTINGS_PCB_FINISHED) {
+            printf("[CPU: %d] %s (process details): ", where, "A burst has finished");
+            if (pcb != NULL) {
+                if (pcb->is_dummy != 1) {
+                    printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                           where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                } else {
+                    printf("time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                           "remainingtime=NaN\n",
+                           time, where);
+                }
+            }
+        }
+
+        else if (settings == OUTMODE_3_SETTINGS_PCB_TIME_SLICE_EXPIRED) {
+            printf("[CPU: %d] %s (process details): ", where, "The time slice expired for a burst");
+            if (pcb != NULL) {
+                if (pcb->is_dummy != 1) {
+                    printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                           where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                } else {
+                    printf("time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                           "remainingtime=NaN\n",
+                           time, where);
+                }
+            }
+        }
+
+        else if (settings == OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI) {
+            printf("[CPU: main] A burst is to be added to the (ready) queue of CPU %d: ", where);
+            if (pcb != NULL) {
+                if (pcb->is_dummy != 1) {
+                    printf("time=%lld, cpu=main, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                           pcb->pid, pcb->burst_length, pcb->remaining_time);
+                } else {
+                    printf("time=%lld, cpu=main, pid=dummy process, burstlen=NaN, "
+                           "remainingtime=NaN\n",
+                           time);
+                }
+            }
+        }
     }
 }
 
