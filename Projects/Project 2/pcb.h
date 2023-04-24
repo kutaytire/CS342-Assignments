@@ -1,9 +1,6 @@
 #ifndef __PCB_H__
 #define __PCB_H__
 
-#include <pthread.h>
-#include <sys/_types/_pid_t.h>
-
 typedef struct {
     int pid;
     int burst_length; // the length of the process in ms (PL)

@@ -18,41 +18,19 @@ void* fcfs(void* args) {
     queue_t* queue = scheduler_args->source_queue;
     // Get the history queue
     queue_t* history_queue = scheduler_args->history_queue;
-    pcb_t item;
 
     while (1) {
-        
+        // Lock the queue
+        pthread_mutex_lock(scheduler_args->queue_generator_lock);
 
-        while(1) {
-            // Lock the queue
+        while (!(queue->size > 0)) {
+            pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+            usleep(1000); // Sleep for 1 ms
             pthread_mutex_lock(scheduler_args->queue_generator_lock);
-
-            printf("\nProcessor %d has the lock\n", scheduler_args->id_of_processor);
-
-            if(!(queue->size > 0)){
-                
-                pthread_mutex_unlock(scheduler_args->queue_generator_lock);
-                printf("Time to sleep");
-                usleep(1000);
-                printf("\nProcessor %d releases the lock\n", scheduler_args->id_of_processor);
-            }
-            else {
-
-                item = queue_dequeue(queue);
-                printf("Size of the queue is %d for process %d\n" ,queue->size, scheduler_args->id_of_processor);
-                break;
-            }
         }
 
-        printf("\nProcessor %d has exited\n", scheduler_args->id_of_processor);
-
         // Get the next process
-
-        
-
-        printf("\nProcessor %d has taken item\n", scheduler_args->id_of_processor);
-        printf("Size of the queue is %d\n" ,queue->size);
-
+        pcb_t item = queue_dequeue(queue);
         if (item.is_dummy != 0) {
             long long current_time = gettimeofday_ms() - start_time;
             // print_for_outmode(&item, current_time, scheduler_args->outmode,
@@ -104,17 +82,13 @@ void* sjf(void* args) {
     queue_t* history_queue = scheduler_args->history_queue;
 
     while (1) {
+        // Lock the queue
+        pthread_mutex_lock(scheduler_args->queue_generator_lock);
 
-        while(1) {
-            // Lock the queue
+        while (!(queue->size > 0)) {
+            pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+            usleep(1000);
             pthread_mutex_lock(scheduler_args->queue_generator_lock);
-            if(!(queue->size > 0)){
-                pthread_mutex_unlock(scheduler_args->queue_generator_lock);
-                usleep(1000);
-            }
-            else {
-                break;
-            }
         }
 
         // Get the next process
@@ -132,7 +106,6 @@ void* sjf(void* args) {
 
             queue_enqueue(queue, item);
             pthread_mutex_unlock(scheduler_args->queue_generator_lock);
-
             break;
         }
 
@@ -175,17 +148,13 @@ void* rr(void* args) {
     queue_t* history_queue = scheduler_args->history_queue;
 
     while (1) {
+        // Lock the queue
+        pthread_mutex_lock(scheduler_args->queue_generator_lock);
 
-        while(1) {
-            // Lock the queue
+        while (!(queue->size > 0)) {
+            pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+            usleep(1000);
             pthread_mutex_lock(scheduler_args->queue_generator_lock);
-            if(!(queue->size > 0)){
-                pthread_mutex_unlock(scheduler_args->queue_generator_lock);
-                usleep(1000);
-            }
-            else {
-                break;
-            }
         }
 
         // Get the next process

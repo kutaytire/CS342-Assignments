@@ -36,10 +36,10 @@ void* fcfs(void* args) {
             //                   OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE,
             //                   scheduler_args->id_of_processor);
 
-            queue_enqueue(queue, item);
             print_for_outmode(NULL, current_time, scheduler_args->outmode,
                               OUTMODE_3_SETTINGS_CPU_EXITING, scheduler_args->id_of_processor,
                               scheduler_args->outfile);
+            queue_enqueue(queue, item);
             pthread_cond_signal(scheduler_args->queue_generator_cond);
             pthread_mutex_unlock(scheduler_args->queue_generator_lock);
             break;
