@@ -54,13 +54,12 @@ long long start_time;
 queue_t* queue;
 queue_t* history_queue;
 pthread_mutex_t queue_generator_lock = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t queue_generator_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t history_queue_lock = PTHREAD_MUTEX_INITIALIZER;
 
 // Multiple queue related variables
 queue_t** processor_queues;
 pthread_mutex_t* processor_queue_locks;
-pthread_cond_t* processor_queue_conds;
+
 
 // Main Program
 int main(int argc, char* argv[]) {
@@ -218,7 +217,7 @@ int main(int argc, char* argv[]) {
             pc = atoi(argv[i]);
 
             random_generate = 1;
-            printf("The value of t: %d, t1: %d, t2: %d, l: %d, l1: %d, l2: %d, pc: %d\n", t, t1, t2,
+            printf("The value of T: %d, T1: %d, T2: %d, L: %d, L1: %d, L2: %d, PC: %d\n", t, t1, t2,
                    l, l1, l2, pc);
         }
     }
@@ -231,13 +230,13 @@ int main(int argc, char* argv[]) {
     // Create n number of queues for multiple-queue scheduling algorithm
     processor_queues = malloc(sizeof(queue_t*) * number_of_processors);
     processor_queue_locks = malloc(sizeof(pthread_mutex_t) * number_of_processors);
-    processor_queue_conds = malloc(sizeof(pthread_cond_t) * number_of_processors);
+    
 
     processor_queues = malloc(sizeof(queue_t*) * number_of_processors);
     for (int i = 0; i < number_of_processors; i++) {
         processor_queues[i] = queue_create();
         pthread_mutex_init(&processor_queue_locks[i], NULL);
-        pthread_cond_init(&processor_queue_conds[i], NULL);
+       
     }
 
     if (outfile != NULL) {
@@ -258,8 +257,6 @@ int main(int argc, char* argv[]) {
             args->id_of_processor = i + 1;
             args->outfile = outfp;
             args->outmode = outmode;
-            args->queue_generator_cond =
-                (scheduling_approach == 'S') ? &queue_generator_cond : &processor_queue_conds[i];
             args->queue_generator_lock =
                 (scheduling_approach == 'S') ? &queue_generator_lock : &processor_queue_locks[i];
             args->history_queue_lock = &history_queue_lock;
@@ -280,8 +277,6 @@ int main(int argc, char* argv[]) {
             args->id_of_processor = i + 1;
             args->outfile = outfp;
             args->outmode = outmode;
-            args->queue_generator_cond =
-                (scheduling_approach == 'S') ? &queue_generator_cond : &processor_queue_conds[i];
             args->queue_generator_lock =
                 (scheduling_approach == 'S') ? &queue_generator_lock : &processor_queue_locks[i];
             args->history_queue_lock = &history_queue_lock;
@@ -300,8 +295,6 @@ int main(int argc, char* argv[]) {
             args->id_of_processor = i + 1;
             args->outfile = outfp;
             args->outmode = outmode;
-            args->queue_generator_cond =
-                (scheduling_approach == 'S') ? &queue_generator_cond : &processor_queue_conds[i];
             args->queue_generator_lock =
                 (scheduling_approach == 'S') ? &queue_generator_lock : &processor_queue_locks[i];
             args->history_queue_lock = &history_queue_lock;
@@ -420,12 +413,10 @@ void update_queue_s(char* tasks_source) {
                     queue_sorted_enqueue(queue, pcb);
                 } else {
                     queue_enqueue(queue, pcb);
+                    printf("\n\nProcess is added\n\n");
                 }
 
                 pthread_mutex_unlock(&queue_generator_lock);
-
-                pthread_cond_signal(&queue_generator_cond);
-
                 last_pid++;
 
             } else if (strncmp(line, "IAT", 3) == 0) {
@@ -461,8 +452,6 @@ void update_queue_s(char* tasks_source) {
     queue_enqueue(queue, dummy_pcb);
 
     pthread_mutex_unlock(&queue_generator_lock);
-
-    pthread_cond_signal(&queue_generator_cond);
 
     fclose(fp);
     free(line);
@@ -543,7 +532,6 @@ void update_queue_m(char* tasks_source) {
                     }
 
                     pthread_mutex_unlock(&processor_queue_locks[queue_id]);
-                    pthread_cond_signal(&processor_queue_conds[queue_id]);
 
                 } else {
                     int min_load = get_queue_load(processor_queues[0]);
@@ -574,10 +562,10 @@ void update_queue_m(char* tasks_source) {
                         queue_sorted_enqueue(processor_queues[id_of_min], pcb);
                     } else {
                         queue_enqueue(processor_queues[id_of_min], pcb);
+                        
                     }
 
                     pthread_mutex_unlock(&processor_queue_locks[id_of_min]);
-                    pthread_cond_signal(&processor_queue_conds[id_of_min]);
                 }
                 last_pid++;
             } else if (strncmp(line, "IAT", 3) == 0) {
@@ -613,7 +601,6 @@ void update_queue_m(char* tasks_source) {
         queue_enqueue(processor_queues[i], dummy_pcb);
 
         pthread_mutex_unlock(&processor_queue_locks[i]);
-        pthread_cond_signal(&processor_queue_conds[i]);
     }
     fclose(fp);
     free(line);
@@ -668,8 +655,6 @@ void update_queue_s_random() {
 
         printf("%s\n", "a processor is signaled\n");
 
-        pthread_cond_signal(&queue_generator_cond);
-
         if (count == pc)
             break;
 
@@ -702,7 +687,6 @@ void update_queue_s_random() {
 
     pthread_mutex_unlock(&queue_generator_lock);
 
-    pthread_cond_signal(&queue_generator_cond);
 }
 
 void update_queue_m_random() {
@@ -757,7 +741,6 @@ void update_queue_m_random() {
             }
 
             pthread_mutex_unlock(&processor_queue_locks[queue_id]);
-            pthread_cond_signal(&processor_queue_conds[queue_id]);
 
         } else {
             int min_load = get_queue_load(processor_queues[0]);
@@ -800,7 +783,6 @@ void update_queue_m_random() {
             pthread_mutex_unlock(&processor_queue_locks[id_of_min]);
 
             // printf("Processor %d is signaled after the addition of an item. \n", id_of_min + 1);
-            pthread_cond_signal(&processor_queue_conds[id_of_min]);
         }
 
         if (count == pc)
@@ -836,6 +818,5 @@ void update_queue_m_random() {
         queue_enqueue(processor_queues[i], dummy_pcb);
 
         pthread_mutex_unlock(&processor_queue_locks[i]);
-        pthread_cond_signal(&processor_queue_conds[i]);
     }
 }
