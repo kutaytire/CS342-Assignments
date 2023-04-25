@@ -12,6 +12,10 @@ queue_t* queue_create() {
 }
 
 void queue_destroy(queue_t* q) {
+    if (q == NULL) {
+        return;
+    }
+
     queue_node_t* current = q->head;
     while (current != NULL) {
         queue_node_t* next = current->next;

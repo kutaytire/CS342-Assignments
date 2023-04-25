@@ -230,13 +230,13 @@ int main(int argc, char* argv[]) {
     // Create n number of queues for multiple-queue scheduling algorithm
     processor_queues = malloc(sizeof(queue_t*) * number_of_processors);
     processor_queue_locks = malloc(sizeof(pthread_mutex_t) * number_of_processors);
-    
+
 
     processor_queues = malloc(sizeof(queue_t*) * number_of_processors);
     for (int i = 0; i < number_of_processors; i++) {
         processor_queues[i] = queue_create();
         pthread_mutex_init(&processor_queue_locks[i], NULL);
-       
+
     }
 
     if (outfile != NULL) {
@@ -562,7 +562,7 @@ void update_queue_m(char* tasks_source) {
                         queue_sorted_enqueue(processor_queues[id_of_min], pcb);
                     } else {
                         queue_enqueue(processor_queues[id_of_min], pcb);
-                        
+
                     }
 
                     pthread_mutex_unlock(&processor_queue_locks[id_of_min]);

@@ -223,22 +223,24 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Common queue for single-queue scheduling algorithm
-    queue = queue_create();
+    if (scheduling_approach == 'S') {
+        // Common queue for single-queue scheduling algorithm
+        queue = queue_create();
+    } else if (scheduling_approach == 'M') {
+        // Create n number of queues for multiple-queue scheduling algorithm
+        processor_queues = malloc(sizeof(queue_t*) * number_of_processors);
+        processor_queue_locks = malloc(sizeof(pthread_mutex_t) * number_of_processors);
+        processor_queue_conds = malloc(sizeof(pthread_cond_t) * number_of_processors);
+
+        for (int i = 0; i < number_of_processors; i++) {
+            processor_queues[i] = queue_create();
+            pthread_mutex_init(&processor_queue_locks[i], NULL);
+            pthread_cond_init(&processor_queue_conds[i], NULL);
+        }
+    }
+
     history_queue = queue_create();
     pthread_t threads[number_of_processors];
-
-    // Create n number of queues for multiple-queue scheduling algorithm
-    processor_queues = malloc(sizeof(queue_t*) * number_of_processors);
-    processor_queue_locks = malloc(sizeof(pthread_mutex_t) * number_of_processors);
-    processor_queue_conds = malloc(sizeof(pthread_cond_t) * number_of_processors);
-
-    processor_queues = malloc(sizeof(queue_t*) * number_of_processors);
-    for (int i = 0; i < number_of_processors; i++) {
-        processor_queues[i] = queue_create();
-        pthread_mutex_init(&processor_queue_locks[i], NULL);
-        pthread_cond_init(&processor_queue_conds[i], NULL);
-    }
 
     if (outfile != NULL) {
         outfp = fopen(outfile, "w");
@@ -251,62 +253,60 @@ int main(int argc, char* argv[]) {
     // Create n number of threads to simulate processors
     for (int i = 0; i < number_of_processors; i++) {
         if (strcmp(algorithm, "FCFS") == 0) {
-            scheduler_args_t* args = malloc(sizeof(scheduler_args_t));
-            args->source_queue = (scheduling_approach == 'S') ? queue : processor_queues[i];
-            args->time_quantum = -1;
-            args->history_queue = history_queue;
-            args->id_of_processor = i + 1;
-            args->outfile = outfp;
-            args->outmode = outmode;
-            args->queue_generator_cond =
-                (scheduling_approach == 'S') ? &queue_generator_cond : &processor_queue_conds[i];
-            args->queue_generator_lock =
-                (scheduling_approach == 'S') ? &queue_generator_lock : &processor_queue_locks[i];
-            args->history_queue_lock = &history_queue_lock;
-            // scheduler_args_t args = {.source_queue = queue, .time_quantum = -1, .history_queue =
-            // history_queue, .id_of_processor = i};
+            scheduler_args_t args = {
+                .source_queue = (scheduling_approach == 'S') ? queue : processor_queues[i],
+                .time_quantum = -1,
+                .history_queue = history_queue,
+                .id_of_processor = i + 1,
+                .outfile = outfp,
+                .outmode = outmode,
+                .queue_generator_cond = (scheduling_approach == 'S') ? &queue_generator_cond
+                                                                     : &processor_queue_conds[i],
+                .queue_generator_lock = (scheduling_approach == 'S') ? &queue_generator_lock
+                                                                     : &processor_queue_locks[i],
+                .history_queue_lock = &history_queue_lock};
 
-            if (pthread_create(&threads[i], NULL, fcfs, (void*)args) != 0) {
+            if (pthread_create(&threads[i], NULL, fcfs, (void*)&args) != 0) {
                 printf("Error: Thread creation failed.\n");
                 exit(-1);
             }
         }
 
         else if (strcmp(algorithm, "SJF") == 0) {
-            scheduler_args_t* args = malloc(sizeof(scheduler_args_t));
-            args->source_queue = (scheduling_approach == 'S') ? queue : processor_queues[i];
-            args->time_quantum = -1;
-            args->history_queue = history_queue;
-            args->id_of_processor = i + 1;
-            args->outfile = outfp;
-            args->outmode = outmode;
-            args->queue_generator_cond =
-                (scheduling_approach == 'S') ? &queue_generator_cond : &processor_queue_conds[i];
-            args->queue_generator_lock =
-                (scheduling_approach == 'S') ? &queue_generator_lock : &processor_queue_locks[i];
-            args->history_queue_lock = &history_queue_lock;
+            scheduler_args_t args = {
+                .source_queue = (scheduling_approach == 'S') ? queue : processor_queues[i],
+                .time_quantum = -1,
+                .history_queue = history_queue,
+                .id_of_processor = i + 1,
+                .outfile = outfp,
+                .outmode = outmode,
+                .queue_generator_cond = (scheduling_approach == 'S') ? &queue_generator_cond
+                                                                     : &processor_queue_conds[i],
+                .queue_generator_lock = (scheduling_approach == 'S') ? &queue_generator_lock
+                                                                     : &processor_queue_locks[i],
+                .history_queue_lock = &history_queue_lock};
 
-            if (pthread_create(&threads[i], NULL, sjf, (void*)args) != 0) {
+            if (pthread_create(&threads[i], NULL, sjf, (void*)&args) != 0) {
                 printf("Error: Thread creation failed.\n");
                 exit(-1);
             }
         }
 
         else if (strcmp(algorithm, "RR") == 0) {
-            scheduler_args_t* args = malloc(sizeof(scheduler_args_t));
-            args->source_queue = (scheduling_approach == 'S') ? queue : processor_queues[i];
-            args->time_quantum = time_quantum;
-            args->history_queue = history_queue;
-            args->id_of_processor = i + 1;
-            args->outfile = outfp;
-            args->outmode = outmode;
-            args->queue_generator_cond =
-                (scheduling_approach == 'S') ? &queue_generator_cond : &processor_queue_conds[i];
-            args->queue_generator_lock =
-                (scheduling_approach == 'S') ? &queue_generator_lock : &processor_queue_locks[i];
-            args->history_queue_lock = &history_queue_lock;
+            scheduler_args_t args = {
+                .source_queue = (scheduling_approach == 'S') ? queue : processor_queues[i],
+                .time_quantum = time_quantum,
+                .history_queue = history_queue,
+                .id_of_processor = i + 1,
+                .outfile = outfp,
+                .outmode = outmode,
+                .queue_generator_cond = (scheduling_approach == 'S') ? &queue_generator_cond
+                                                                     : &processor_queue_conds[i],
+                .queue_generator_lock = (scheduling_approach == 'S') ? &queue_generator_lock
+                                                                     : &processor_queue_locks[i],
+                .history_queue_lock = &history_queue_lock};
 
-            if (pthread_create(&threads[i], NULL, rr, (void*)args) != 0) {
+            if (pthread_create(&threads[i], NULL, rr, (void*)&args) != 0) {
                 printf("Error: Thread creation failed.\n");
                 exit(-1);
             }
@@ -342,8 +342,34 @@ int main(int argc, char* argv[]) {
     pthread_mutex_unlock(&history_queue_lock);
 
     // TODO: Free memory allocated for dynamically allocated strings
+    free(queue_selection_method);
+    free(input_file);
+    free(algorithm);
+    free(outfile);
 
-    fclose(outfp);
+    queue_destroy(history_queue);
+
+    if (scheduling_approach == 'S') {
+        queue_destroy(queue);
+    } else if (scheduling_approach == 'M') {
+        for (int i = 0; i < number_of_processors; i++) {
+            queue_destroy(processor_queues[i]);
+            pthread_mutex_destroy(&processor_queue_locks[i]);
+            pthread_cond_destroy(&processor_queue_conds[i]);
+        }
+
+        free(processor_queues);
+        free(processor_queue_locks);
+        free(processor_queue_conds);
+    }
+
+    pthread_mutex_destroy(&queue_generator_lock);
+    pthread_cond_destroy(&queue_generator_cond);
+    pthread_mutex_destroy(&history_queue_lock);
+
+    if (outfp != NULL) {
+        fclose(outfp);
+    }
 
     return 0;
 }
@@ -384,6 +410,7 @@ void update_queue_s(char* tasks_source) {
             printf(
                 "Invalid line encountered in the input file: %s => Line: %s\nExiting the program!",
                 tasks_source, line);
+            regfree(&regex);
             exit(-1);
         }
 
@@ -393,6 +420,8 @@ void update_queue_s(char* tasks_source) {
                     printf("Invalid burst length in the input file: %s => Line: %s\nExiting the "
                            "program!",
                            tasks_source, line);
+                    regfree(&regex);
+                    exit(-1);
                 }
 
                 // Create a new PCB
@@ -435,6 +464,7 @@ void update_queue_s(char* tasks_source) {
                     printf("Invalid IAT in the input file: %s => Line: %s\nExiting the "
                            "program!",
                            tasks_source, line);
+                    regfree(&regex);
                     exit(-1);
                 }
 
@@ -447,9 +477,11 @@ void update_queue_s(char* tasks_source) {
             } else {
                 printf("Invalid line encountered in the input file: %s\nLine: %s\n", tasks_source,
                        line);
+                regfree(&regex);
                 exit(-1);
             }
         }
+        regfree(&regex);
     }
 
     pthread_mutex_lock(&queue_generator_lock);
