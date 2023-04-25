@@ -388,6 +388,8 @@ void update_queue_s(char* tasks_source) {
                     printf("Invalid burst length in the input file: %s => Line: %s\nExiting the "
                            "program!",
                            tasks_source, line);
+                    regfree(&regex);
+                    exit(-1);
                 }
 
                 // Create a new PCB

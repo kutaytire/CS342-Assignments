@@ -241,6 +241,7 @@ int main(int argc, char* argv[]) {
 
     history_queue = queue_create();
     pthread_t threads[number_of_processors];
+    scheduler_args_t args[number_of_processors];
 
     if (outfile != NULL) {
         outfp = fopen(outfile, "w");
@@ -253,7 +254,7 @@ int main(int argc, char* argv[]) {
     // Create n number of threads to simulate processors
     for (int i = 0; i < number_of_processors; i++) {
         if (strcmp(algorithm, "FCFS") == 0) {
-            scheduler_args_t args = {
+            args[i] = (scheduler_args_t){
                 .source_queue = (scheduling_approach == 'S') ? queue : processor_queues[i],
                 .time_quantum = -1,
                 .history_queue = history_queue,
@@ -266,14 +267,14 @@ int main(int argc, char* argv[]) {
                                                                      : &processor_queue_locks[i],
                 .history_queue_lock = &history_queue_lock};
 
-            if (pthread_create(&threads[i], NULL, fcfs, (void*)&args) != 0) {
+            if (pthread_create(&threads[i], NULL, fcfs, (void*)&args[i]) != 0) {
                 printf("Error: Thread creation failed.\n");
                 exit(-1);
             }
         }
 
         else if (strcmp(algorithm, "SJF") == 0) {
-            scheduler_args_t args = {
+            args[i] = (scheduler_args_t){
                 .source_queue = (scheduling_approach == 'S') ? queue : processor_queues[i],
                 .time_quantum = -1,
                 .history_queue = history_queue,
@@ -286,16 +287,16 @@ int main(int argc, char* argv[]) {
                                                                      : &processor_queue_locks[i],
                 .history_queue_lock = &history_queue_lock};
 
-            if (pthread_create(&threads[i], NULL, sjf, (void*)&args) != 0) {
+            if (pthread_create(&threads[i], NULL, sjf, (void*)&args[i]) != 0) {
                 printf("Error: Thread creation failed.\n");
                 exit(-1);
             }
         }
 
         else if (strcmp(algorithm, "RR") == 0) {
-            scheduler_args_t args = {
+            args[i] = (scheduler_args_t){
                 .source_queue = (scheduling_approach == 'S') ? queue : processor_queues[i],
-                .time_quantum = time_quantum,
+                .time_quantum = -1,
                 .history_queue = history_queue,
                 .id_of_processor = i + 1,
                 .outfile = outfp,
@@ -306,7 +307,7 @@ int main(int argc, char* argv[]) {
                                                                      : &processor_queue_locks[i],
                 .history_queue_lock = &history_queue_lock};
 
-            if (pthread_create(&threads[i], NULL, rr, (void*)&args) != 0) {
+            if (pthread_create(&threads[i], NULL, rr, (void*)&args[i]) != 0) {
                 printf("Error: Thread creation failed.\n");
                 exit(-1);
             }
