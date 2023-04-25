@@ -296,7 +296,7 @@ int main(int argc, char* argv[]) {
         else if (strcmp(algorithm, "RR") == 0) {
             args[i] = (scheduler_args_t){
                 .source_queue = (scheduling_approach == 'S') ? queue : processor_queues[i],
-                .time_quantum = -1,
+                .time_quantum = time_quantum,
                 .history_queue = history_queue,
                 .id_of_processor = i + 1,
                 .outfile = outfp,

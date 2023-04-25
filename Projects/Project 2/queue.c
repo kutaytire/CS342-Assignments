@@ -58,11 +58,7 @@ void queue_sorted_enqueue(queue_t* q, queue_item_t item) {
     } else {
         queue_node_t* current = q->head;
         while (current->next != NULL && current->next->item.burst_length <= item.burst_length) {
-            if (current->next->item.burst_length == item.burst_length) {
-                current = current->next;
-            } else {
-                break;
-            }
+            current = current->next;
         }
         new_node->next = current->next;
         current->next = new_node;
