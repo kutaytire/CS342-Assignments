@@ -336,7 +336,9 @@ int main(int argc, char* argv[]) {
 
     // TODO: Free memory allocated for dynamically allocated strings
 
-    fclose(outfp);
+    if (outfp != NULL) {
+        fclose(outfp);
+    }
 
     return 0;
 }
