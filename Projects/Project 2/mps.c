@@ -411,7 +411,7 @@ int main(int argc, char* argv[]) {
 
     // TODO: Free memory allocated for dynamically allocated strings
     if (queue_selection_method != NULL) { free(queue_selection_method); }
-    if (input_file != NULL) { free(input_file); }
+    if (input_file != NULL && input_file_exists == 1) { free(input_file); }
     if (algorithm != NULL) { free(algorithm); }
     if (outfile != NULL) { free(outfile); }
 
@@ -598,6 +598,7 @@ void update_queue_m(char* tasks_source) {
             printf(
                 "Invalid line encountered in the input file: %s => Line: %s\nExiting the program!",
                 tasks_source, line);
+            regfree(&regex);
             exit(-1);
         }
 
@@ -607,6 +608,8 @@ void update_queue_m(char* tasks_source) {
                     printf("Invalid burst length in the input file: %s => Line: %s\nExiting the "
                            "program!",
                            tasks_source, line);
+                    regfree(&regex);
+                    exit(-1);
                 }
 
                 // Create a new PCB
@@ -631,7 +634,7 @@ void update_queue_m(char* tasks_source) {
 
                     pcb.arrival_time = gettimeofday_ms() - start_time;
 
-                    print_for_outmode(&pcb, pcb.arrival_time, '3',
+                    print_for_outmode(&pcb, pcb.arrival_time, outmode,
                                       OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, queue_id,
                                       outfp);
 
@@ -664,7 +667,7 @@ void update_queue_m(char* tasks_source) {
 
                     pcb.arrival_time = gettimeofday_ms() - start_time;
 
-                    print_for_outmode(&pcb, pcb.arrival_time, '3',
+                    print_for_outmode(&pcb, pcb.arrival_time, outmode,
                                       OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min,
                                       outfp);
 
@@ -685,6 +688,7 @@ void update_queue_m(char* tasks_source) {
                     printf("Invalid IAT in the input file: %s => Line: %s\nExiting the "
                            "program!",
                            tasks_source, line);
+                    regfree(&regex);
                     exit(-1);
                 }
 
@@ -695,6 +699,7 @@ void update_queue_m(char* tasks_source) {
             } else {
                 printf("Invalid line encountered in the input file: %s\nLine: %s\n", tasks_source,
                        line);
+                regfree(&regex);
                 exit(-1);
             }
         }
@@ -705,15 +710,20 @@ void update_queue_m(char* tasks_source) {
     for (int i = 0; i < number_of_processors; i++) {
         pthread_mutex_lock(&processor_queue_locks[i]);
 
-        print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, '3',
+        print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, outmode,
                           OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, i + 1, outfp);
 
         queue_enqueue(processor_queues[i], dummy_pcb);
 
         pthread_mutex_unlock(&processor_queue_locks[i]);
     }
-    fclose(fp);
-    free(line);
+
+    if (fp != NULL) {
+        fclose(fp);
+    }
+    if (line != NULL) {
+        free(line);
+    }
 }
 
 void update_queue_s_random() {
@@ -845,7 +855,7 @@ void update_queue_m_random() {
             pthread_mutex_lock(&processor_queue_locks[queue_id - 1]);
 
             pcb.arrival_time = gettimeofday_ms() - start_time;
-                    
+
             print_for_outmode(&pcb, pcb.arrival_time, '3',
                             OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, queue_id,
                             outfp);
