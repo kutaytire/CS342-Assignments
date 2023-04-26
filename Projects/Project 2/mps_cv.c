@@ -22,7 +22,9 @@ void update_queue_m_random();
 int number_of_processors = DEFAULT_N;
 char scheduling_approach = DEFAULT_SAP;
 char* queue_selection_method = DEFAULT_QS;
+int queue_selection_method_exists = 0;
 char* algorithm = DEFAULT_ALG;
+int algorithm_exists = 0;
 int time_quantum = DEFAULT_Q;
 char* input_file = DEFAULT_INFILE;
 char outmode = DEFAULT_OUTMODE;
@@ -68,107 +70,140 @@ int main(int argc, char* argv[]) {
     // Parse the arguments
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-n") == 0) {
-            if (argv[i + 1] != NULL && atoi(argv[i + 1]) > 0 && atoi(argv[i + 1]) <= 10) {
-                number_of_processors = atoi(argv[i + 1]);
-                printf("Number of processors: %d\n", number_of_processors);
+            if (i + 1 >= argc || argv[i + 1] == NULL) {
+                printf("Number of processors is not specified, falling back to default: %d\n",
+                       DEFAULT_N);
             } else {
-                printf("Invalid or not specified number of processors: %d, falling back to "
-                       "default: %d\n",
-                       argv[i + 1] ? atoi(argv[i + 1]) : -1, DEFAULT_N);
+                if (!(atoi(argv[i + 1]) > 0 && atoi(argv[i + 1]) <= 10)) {
+                    printf("Number of processors is not in range [1, 10], falling back to default: "
+                           "%d\n",
+                           DEFAULT_N);
+                } else {
+                    number_of_processors = atoi(argv[i + 1]);
+                    printf("Number of processors: %d\n", number_of_processors);
+                }
             }
         }
 
         else if (strcmp(argv[i], "-a") == 0) {
-            if (argv[i + 1] == NULL) {
-                goto a_end;
+            if (i + 1 >= argc || argv[i + 1] == NULL) {
+                printf("Scheduling approach is not specified, falling back to default: %c\n",
+                       DEFAULT_SAP);
             } else {
-                scheduling_approach = argv[i + 1][0];
+                if (strcmp(argv[i + 1], "S") == 0 || strcmp(argv[i + 1], "M") == 0) {
+                    scheduling_approach = argv[i + 1][0];
+                    printf("Scheduling approach: %c\n", scheduling_approach);
+                } else {
+                    printf("Invalid scheduling approach: %s, falling back to default: %c\n",
+                           argv[i + 1], DEFAULT_SAP);
+                }
             }
 
             if (scheduling_approach == 'S') {
-                printf("Scheduling approach: Single Queue\n");
-
-                if (argv[i + 2] == NULL || strcmp(argv[i + 2], "NA") != 0) {
+                if (i + 2 >= argc || argv[i + 2] == NULL) {
                     queue_selection_method = malloc(sizeof(char) * 3);
                     strcpy(queue_selection_method, "NA");
+                    queue_selection_method_exists = 1;
                     printf("Queue selection method: %s\n", queue_selection_method);
                 } else if (strcmp(argv[i + 2], "NA") == 0) {
                     queue_selection_method = malloc(sizeof(char) * 3);
                     strcpy(queue_selection_method, argv[i + 2]);
+                    queue_selection_method_exists = 1;
                     printf("Queue selection method: %s\n", queue_selection_method);
                 } else {
                     printf("Queue selection method other than 'NA' (not applicable) is invalid for "
                            "single queue scheduling approach, falling back to default: %s\n",
                            "NA");
                     queue_selection_method = malloc(sizeof(char) * 3);
+                    queue_selection_method_exists = 1;
                     strcpy(queue_selection_method, "NA");
                 }
+            }
 
-            } else if (scheduling_approach == 'M') {
-                printf("Scheduling approach: Multiple Queues\n");
-                if (argv[i + 2] != NULL &&
-                    (strcmp(argv[i + 2], "RM") == 0 || strcmp(argv[i + 2], "LM") == 0)) {
-                    queue_selection_method = malloc(sizeof(char) * 3);
-                    strcpy(queue_selection_method, argv[i + 2]);
-                    printf("Queue selection method: %s\n", queue_selection_method);
+            else if (scheduling_approach == 'M') {
+                if (i + 2 >= argc || argv[i + 2] == NULL) {
+                    printf("Queue selection method is not specified, falling back to default: %s\n",
+                           DEFAULT_QS);
                 } else {
-                    printf("Invalid queue selection method: %s, falling back to default: %s\n",
-                           argv[i + 2] ? argv[i + 2] : "(not specified)", DEFAULT_QS);
+                    if (strcmp(argv[i + 2], "RM") == 0 || strcmp(argv[i + 2], "LM") == 0) {
+                        queue_selection_method = malloc(sizeof(char) * 3);
+                        strcpy(queue_selection_method, argv[i + 2]);
+                        queue_selection_method_exists = 1;
+                        printf("Queue selection method: %s\n", queue_selection_method);
+                    } else {
+                        printf("Invalid queue selection method: %s, falling back to default: %s\n",
+                               argv[i + 2], DEFAULT_QS);
+                    }
                 }
-            } else {
-            a_end:
-                printf("Invalid or not specified scheduling approach: %c, falling back to default: "
-                       "%c\n",
-                       argv[i + 1] ? scheduling_approach : '-', DEFAULT_SAP);
+            }
+
+            else {
+                printf("Invalid scheduling approach: %c, falling back to default: %c\n",
+                       scheduling_approach, DEFAULT_SAP);
+                scheduling_approach = DEFAULT_SAP;
             }
         }
 
         else if (strcmp(argv[i], "-s") == 0) {
-            if (argv[i + 1] != NULL &&
-                (strcmp(argv[i + 1], "FCFS") == 0 || strcmp(argv[i + 1], "SJF") == 0 ||
-                 strcmp(argv[i + 1], "RR") == 0)) {
-                algorithm = malloc(sizeof(char) * 5);
-                strcpy(algorithm, argv[i + 1]);
-                printf("Scheduling algorithm: %s\n", algorithm);
-            } else {
-                printf("Invalid scheduling algorithm: %s, falling back to default: %s\n",
-                       argv[i + 1] ? argv[i + 1] : "(not specified)", DEFAULT_ALG);
+            if (i + 1 >= argc || argv[i + 1] == NULL) {
+                printf("Scheduling algorithm not specified, falling back to default: %s\n",
+                       DEFAULT_ALG);
             }
 
-            if (strcmp(algorithm, "RR") == 0) {
-                if (argv[i + 2] != NULL && atoi(argv[i + 2]) >= 10 && atoi(argv[i + 2]) <= 100) {
-                    time_quantum = atoi(argv[i + 2]);
-                    printf("Time quantum: %d\n", time_quantum);
+            else {
+                if (strcmp(argv[i + 1], "FCFS") == 0 || strcmp(argv[i + 1], "SJF") == 0 ||
+                    strcmp(argv[i + 1], "RR") == 0) {
+                    algorithm = malloc(sizeof(char) * 5);
+                    strcpy(algorithm, argv[i + 1]);
+                    algorithm_exists = 1;
+                    printf("Scheduling algorithm: %s\n", algorithm);
                 } else {
-                    printf(
-                        "Invalid or not specified time quantum: %d, falling back to default: %d\n",
-                        argv[i + 2] ? atoi(argv[i + 2]) : -1, DEFAULT_Q);
+                    printf("Invalid scheduling algorithm: %s, falling back to default: %s\n",
+                           argv[i + 1], DEFAULT_ALG);
                 }
             }
 
-            else if ((strcmp(algorithm, "SJF") == 0 || strcmp(algorithm, "FCFS") == 0) &&
-                     argv[i + 2] != NULL && strcmp(argv[i + 2], "0") != 0) {
-                printf("Time quantum other than 0 is invalid for %s scheduling algorithm, falling "
-                       "back to: %s\n",
-                       algorithm, "0");
+            if (strcmp(algorithm, "RR") == 0) {
+                if (i + 2 >= argc || argv[i + 2] == NULL) {
+                    printf("Time quantum is not specified, falling back to default: %d\n",
+                           DEFAULT_Q);
+                } else {
+                    if (!(atoi(argv[i + 2]) >= 10 && atoi(argv[i + 2]) <= 100)) {
+                        printf("Time quantum is not in range [10, 100], falling back to default: "
+                               "%d\n",
+                               DEFAULT_Q);
+                    } else {
+                        time_quantum = atoi(argv[i + 2]);
+                        printf("Time quantum: %d\n", time_quantum);
+                    }
+                }
+            }
+
+            else if (strcmp(algorithm, "FCFS") == 0 || strcmp(algorithm, "SJF") == 0) {
+                if (i + 2 < argc && argv[i + 2] != NULL && strcmp(argv[i + 2], "0") != 0) {
+                    printf("Time quantum other than 0 is not applicable for %s, falling back to default: %d\n",
+                           algorithm, DEFAULT_Q);
+                }
             }
         }
 
         else if (strcmp(argv[i], "-i") == 0) {
-            if (argv[i + 1] != NULL) {
-                input_file = malloc(sizeof(char) * strlen(argv[i + 1]) + 1);
+            if (i + 1 >= argc || argv[i + 1] == NULL) {
+                printf("Input file is not specified, since there is no default input file name determined, "
+                       "program will exit. Please re-run the program with a valid input file name.\n");
+                exit(-1);
+            } else {
+                input_file = malloc(sizeof(char) * (strlen(argv[i + 1]) + 1));
                 strcpy(input_file, argv[i + 1]);
                 printf("Input file: %s\n", input_file);
                 input_file_exists = 1;
-
-            } else {
-                printf("Invalid or not specified input file: %s, falling back to default: %s\n",
-                       argv[i + 1] ? argv[i + 1] : "(not specified)", DEFAULT_INFILE);
             }
         }
 
         else if (strcmp(argv[i], "-m") == 0) {
-            if (argv[i + 1] != NULL) {
+            if (i + 1 >= argc || argv[i + 1] == NULL) {
+                printf("Outmode is not specified, falling back to default outmode: %c\n", outmode);
+            } else {
                 char mode = argv[i + 1][0];
 
                 if (mode == '1' || mode == '2' || mode == '3') {
@@ -178,121 +213,109 @@ int main(int argc, char* argv[]) {
                     printf("Invalid outmode: %c, falling back to default outmode: %c\n", mode,
                            outmode);
                 }
-
-            } else {
-                printf("Outmode not specified, falling back to default outmode: %c\n", outmode);
             }
         }
 
         else if (strcmp(argv[i], "-o") == 0) {
-            if (argv[i + 1] != NULL) {
-                outfile = malloc(sizeof(char) * strlen(argv[i + 1]) + 1);
+            if (i + 1 >= argc || argv[i + 1] == NULL) {
+                printf("Output file is not specified, and there is no default for it, hence all "
+                       "output will go to screen\n");
+            } else {
+                outfile = malloc(sizeof(char) * (strlen(argv[i + 1]) + 1));
                 strcpy(outfile, argv[i + 1]);
                 printf("Output file: %s\n", outfile);
-
-            } else {
-                printf("Invalid or not specified outfile: %s, falling back to default: NULL (all "
-                       "output will go to screen)\n",
-                       argv[i + 1] ? argv[i + 1] : "(not specified)");
             }
         }
 
         else if (strcmp(argv[i], "-r") == 0) {
-            i++;
-            if (argv[i] == NULL) {
+            if (i + 1 >= argc || argv[i + 1] == NULL) {
                 printf("T value is not specified, falling back to default value: %d\n", DEFAULT_T);
             }
             else {
-                if (atoi(argv[i]) <= 0) {
-                    printf("Invalid T value: %d, falling back to default value: %d\n", atoi(argv[i]),
+                if (atoi(argv[i + 1]) <= 0) {
+                    printf("Invalid T value: %d, falling back to default value: %d\n", atoi(argv[i + 1]),
                            DEFAULT_T);
                 }
                 else {
-                    t = atoi(argv[i]);
+                    t = atoi(argv[i + 1]);
                 }
             }
 
-            i++;
-            if (argv[i] == NULL) {
+            if (i + 2 >= argc || argv[i + 2] == NULL) {
                 printf("T1 value is not specified, falling back to default value: %d\n", DEFAULT_T1);
             }
             else {
-                if (atoi(argv[i]) < 10) {
-                    printf("Invalid T1 value: %d, T1 should be bigger than or equal to minimum interarrival time 10 ms, falling back to default value: %d\n", atoi(argv[i]),
+                if (atoi(argv[i + 2]) < 10) {
+                    printf("Invalid T1 value: %d, T1 should be bigger than or equal to minimum interarrival time 10 ms, falling back to default value: %d\n", atoi(argv[i + 2]),
                            DEFAULT_T1);
                 }
                 else {
-                    t1 = atoi(argv[i]);
+                    t1 = atoi(argv[i + 2]);
                 }
             }
 
-            i++;
-            if (argv[i] == NULL) {
+            if (i + 3 >= argc || argv[i + 3] == NULL) {
                 printf("T2 value is not specified, falling back to default value: %d\n", DEFAULT_T2);
             }
             else {
-                if (atoi(argv[i]) < t1) {
-                    printf("Invalid T2 value: %d, T2 >= T1 should hold, falling back to default value: %d\n", atoi(argv[i]),
+                if (atoi(argv[i + 3]) < t1) {
+                    printf("Invalid T2 value: %d, T2 >= T1 should hold, falling back to default value: %d\n", atoi(argv[i + 3]),
                            DEFAULT_T2);
                 }
                 else {
-                    t2 = atoi(argv[i]);
+                    t2 = atoi(argv[i + 3]);
                 }
             }
 
-            i++;
-            if (argv[i] == NULL) {
+            if (i + 4 >= argc || argv[i + 4] == NULL) {
                 printf("L value is not specified, falling back to default value: %d\n", DEFAULT_L);
             }
             else {
-                if (atoi(argv[i]) <= 0) {
-                    printf("Invalid L value: %d, falling back to default value: %d\n", atoi(argv[i]),
+                if (atoi(argv[i + 4]) <= 0) {
+                    printf("Invalid L value: %d, falling back to default value: %d\n", atoi(argv[i + 4]),
                            DEFAULT_L);
                 }
                 else {
-                    l = atoi(argv[i]);
+                    l = atoi(argv[i + 4]);
                 }
             }
 
-            i++;
-            if (argv[i] == NULL) {
+            if (i + 5 >= argc || argv[i + 5] == NULL) {
                 printf("L1 value is not specified, falling back to default value: %d\n", DEFAULT_L1);
             }
             else {
-                if (atoi(argv[i]) < 10) {
-                    printf("Invalid L1 value: %d, L1 should be bigger than or equal to minimum burst length 10 ms, falling back to default value: %d\n", atoi(argv[i]),
+                if (atoi(argv[i + 5]) < 10) {
+                    printf("Invalid L1 value: %d, L1 should be bigger than or equal to minimum burst length 10 ms, falling back to default value: %d\n", atoi(argv[i + 5]),
                            DEFAULT_L1);
                 }
                 else {
-                    l1 = atoi(argv[i]);
+                    l1 = atoi(argv[i + 5]);
                 }
             }
 
-            i++;
-            if (argv[i] == NULL) {
+            if (i + 6 >= argc || argv[i + 6] == NULL) {
                 printf("L2 value is not specified, falling back to default value: %d\n", DEFAULT_L2);
             }
             else {
-                if (atoi(argv[i]) < l1) {
-                    printf("Invalid L2 value: %d, L2 >= L1 should hold, falling back to default value: %d\n", atoi(argv[i]),
+                if (atoi(argv[i + 6]) < l1) {
+                    printf("Invalid L2 value: %d, L2 >= L1 should hold, falling back to default value: %d\n", atoi(argv[i + 6]),
                            DEFAULT_L2);
                 }
                 else {
-                    l2 = atoi(argv[i]);
+                    l2 = atoi(argv[i + 6]);
                 }
             }
 
-            i++;
-            if (argv[i] == NULL) {
+            if (i + 7 >= argc || argv[i + 7] == NULL) {
                 printf("PC value is not specified, falling back to default value: %d\n", DEFAULT_PC);
             }
             else {
-                if (atoi(argv[i]) < 0) {
-                    printf("Invalid PC value: %d, falling back to default value: %d\n", atoi(argv[i]),
+                if (atoi(argv[i + 7]) < 0) {
+                    printf("Invalid PC value: %d, falling back to default value: %d\n", atoi(argv[i + 7]),
                            DEFAULT_PC);
                 }
                 else {
-                    pc = atoi(argv[i]);
+                    pc = atoi(argv[i + 7]);
                 }
             }
 
@@ -421,9 +444,9 @@ int main(int argc, char* argv[]) {
     pthread_mutex_unlock(&history_queue_lock);
 
     // TODO: Free memory allocated for dynamically allocated strings
-    if (queue_selection_method != NULL) { free(queue_selection_method); }
+    if (queue_selection_method != NULL && queue_selection_method_exists == 1) { free(queue_selection_method); }
     if (input_file != NULL && input_file_exists == 1) { free(input_file); }
-    if (algorithm != NULL) { free(algorithm); }
+    if (algorithm != NULL && algorithm_exists == 1) { free(algorithm); }
     if (outfile != NULL) { free(outfile); }
 
     queue_destroy(history_queue);
