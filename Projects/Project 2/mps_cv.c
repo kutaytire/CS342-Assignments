@@ -639,9 +639,14 @@ void update_queue_m(char* tasks_source) {
                              .id_of_processor = -1,
                              .is_dummy = 0};
 
-                if (strcpy(queue_selection_method, "RM") == 0) {
+                if (strcmp(queue_selection_method, "RM") == 0) {
+
                     int queue_id = last_pid % number_of_processors;
-                    pthread_mutex_lock(&processor_queue_locks[queue_id]);
+
+                    if (queue_id == 0)
+                        queue_id = number_of_processors;
+
+                    pthread_mutex_lock(&processor_queue_locks[queue_id - 1]);
 
                     pcb.arrival_time = gettimeofday_ms() - start_time;
 
@@ -650,13 +655,13 @@ void update_queue_m(char* tasks_source) {
                                       outfp);
 
                     if (strcmp(algorithm, "SJF") == 0) {
-                        queue_sorted_enqueue(processor_queues[queue_id], pcb);
+                        queue_sorted_enqueue(processor_queues[queue_id - 1], pcb);
                     } else {
-                        queue_enqueue(processor_queues[queue_id], pcb);
+                        queue_enqueue(processor_queues[queue_id - 1], pcb);
                     }
 
-                    pthread_mutex_unlock(&processor_queue_locks[queue_id]);
-                    pthread_cond_signal(&processor_queue_conds[queue_id]);
+                    pthread_mutex_unlock(&processor_queue_locks[queue_id - 1]);
+                    pthread_cond_signal(&processor_queue_conds[queue_id - 1]);
 
                 } else {
                     int min_load = get_queue_load(processor_queues[0]);
@@ -854,23 +859,29 @@ void update_queue_m_random() {
                      .id_of_processor = -1,
                      .is_dummy = 0};
 
-        if (strcpy(queue_selection_method, "RM") == 0) {
+        if (strcmp(queue_selection_method, "RM") == 0) {
+
             int queue_id = count % number_of_processors;
-            pthread_mutex_lock(&processor_queue_locks[queue_id]);
+
+            if (queue_id == 0)
+                queue_id = number_of_processors;
+
+            pthread_mutex_lock(&processor_queue_locks[queue_id - 1]);
 
             pcb.arrival_time = gettimeofday_ms() - start_time;
-
+                    
             print_for_outmode(&pcb, pcb.arrival_time, '3',
-                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, queue_id, outfp);
+                            OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, queue_id,
+                            outfp);
 
             if (strcmp(algorithm, "SJF") == 0) {
-                queue_sorted_enqueue(processor_queues[queue_id], pcb);
+                queue_sorted_enqueue(processor_queues[queue_id - 1], pcb);
             } else {
-                queue_enqueue(processor_queues[queue_id], pcb);
+                queue_enqueue(processor_queues[queue_id - 1], pcb);
             }
 
-            pthread_mutex_unlock(&processor_queue_locks[queue_id]);
-            pthread_cond_signal(&processor_queue_conds[queue_id]);
+            pthread_mutex_unlock(&processor_queue_locks[queue_id - 1]);
+            pthread_cond_signal(&processor_queue_conds[queue_id - 1]);
 
         } else {
             int min_load = get_queue_load(processor_queues[0]);
