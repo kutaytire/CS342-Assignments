@@ -20,7 +20,11 @@ void print_pcb(pcb_t* pcb) {
 
 void print_for_outmode(pcb_t* pcb, long long time, char outmode, enum outmode_3_settings settings,
                        int where, FILE* fp) {
-    if (outmode == '2') {
+    if (outmode == '1') {
+        return;
+    }
+
+    else if (outmode == '2') {
         if (pcb != NULL) {
             if (pcb->is_dummy != 1 && pcb->id_of_processor != -1 && settings == OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE) {
                 if (fp != NULL) {

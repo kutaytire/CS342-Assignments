@@ -783,7 +783,7 @@ void update_queue_s_random() {
         pthread_mutex_lock(&queue_generator_lock);
         pcb.arrival_time = gettimeofday_ms() - start_time;
 
-        print_for_outmode(&pcb, pcb.arrival_time, '3', OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE,
+        print_for_outmode(&pcb, pcb.arrival_time, outmode, OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE,
                           -999, outfp);
 
         if (strcmp(algorithm, "SJF") == 0) {
@@ -822,7 +822,7 @@ void update_queue_s_random() {
 
     pthread_mutex_lock(&queue_generator_lock);
 
-    print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, '3',
+    print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, outmode,
                       OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE, -999, outfp);
 
     // Add a dummy PCB to the queue to indicate the end of the file
@@ -848,7 +848,7 @@ void update_queue_m_random() {
             // printf("Random u is: %f\n", random_u);
 
             random_burst_length = log(1 - random_u) / -lambda;
-            
+
 
         } while (random_burst_length < l1 || random_burst_length > l2);
 
@@ -880,7 +880,7 @@ void update_queue_m_random() {
 
             pcb.arrival_time = gettimeofday_ms() - start_time;
 
-            print_for_outmode(&pcb, pcb.arrival_time, '3',
+            print_for_outmode(&pcb, pcb.arrival_time, outmode,
                             OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, queue_id,
                             outfp);
 
@@ -919,7 +919,7 @@ void update_queue_m_random() {
 
             pcb.arrival_time = gettimeofday_ms() - start_time;
 
-            print_for_outmode(&pcb, pcb.arrival_time, '3',
+            print_for_outmode(&pcb, pcb.arrival_time, outmode,
                               OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min + 1, outfp);
 
             if (strcmp(algorithm, "SJF") == 0) {
@@ -962,7 +962,7 @@ void update_queue_m_random() {
     for (int i = 0; i < number_of_processors; i++) {
         pthread_mutex_lock(&processor_queue_locks[i]);
 
-        print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, '3',
+        print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, outmode,
                           OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, i + 1, outfp);
 
         queue_enqueue(processor_queues[i], dummy_pcb);
