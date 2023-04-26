@@ -668,7 +668,7 @@ void update_queue_m(char* tasks_source) {
                     pcb.arrival_time = gettimeofday_ms() - start_time;
 
                     print_for_outmode(&pcb, pcb.arrival_time, outmode,
-                                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min,
+                                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min + 1,
                                       outfp);
 
                     if (strcmp(algorithm, "SJF") == 0) {
@@ -825,11 +825,12 @@ void update_queue_m_random() {
             // printf("Random u is: %f\n", random_u);
 
             random_burst_length = log(1 - random_u) / -lambda;
-            printf("Burst length is created with length: %f\n", random_burst_length);
+            
 
         } while (random_burst_length < l1 || random_burst_length > l2);
 
         random_burst_length = (int)(random_burst_length);
+        printf("Burst length is created with length: %f\n", random_burst_length);
         count++;
 
         // printf("Burst length is created with length: %f \n", random_burst_length);
@@ -896,7 +897,7 @@ void update_queue_m_random() {
             pcb.arrival_time = gettimeofday_ms() - start_time;
 
             print_for_outmode(&pcb, pcb.arrival_time, '3',
-                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min, outfp);
+                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min + 1, outfp);
 
             if (strcmp(algorithm, "SJF") == 0) {
                 queue_sorted_enqueue(processor_queues[id_of_min], pcb);

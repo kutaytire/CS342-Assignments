@@ -688,7 +688,7 @@ void update_queue_m(char* tasks_source) {
                     pcb.arrival_time = gettimeofday_ms() - start_time;
 
                     print_for_outmode(&pcb, pcb.arrival_time, outmode,
-                                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min,
+                                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min + 1,
                                       outfp);
 
                     if (strcmp(algorithm, "SJF") == 0) {
@@ -922,7 +922,7 @@ void update_queue_m_random() {
             pcb.arrival_time = gettimeofday_ms() - start_time;
 
             print_for_outmode(&pcb, pcb.arrival_time, '3',
-                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min, outfp);
+                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min + 1, outfp);
 
             if (strcmp(algorithm, "SJF") == 0) {
                 queue_sorted_enqueue(processor_queues[id_of_min], pcb);
