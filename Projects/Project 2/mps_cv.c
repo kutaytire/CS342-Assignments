@@ -322,7 +322,6 @@ int main(int argc, char* argv[]) {
             update_queue_m(input_file);
         }
     } else {
-        // Update the queue in the main thread by reading from the input file
         if (scheduling_approach == 'S') {
             update_queue_s_random();
         } else if (scheduling_approach == 'M') {
@@ -343,10 +342,10 @@ int main(int argc, char* argv[]) {
     pthread_mutex_unlock(&history_queue_lock);
 
     // TODO: Free memory allocated for dynamically allocated strings
-    free(queue_selection_method);
-    free(input_file);
-    free(algorithm);
-    free(outfile);
+    if (queue_selection_method != NULL) { free(queue_selection_method); }
+    if (input_file != NULL) { free(input_file); }
+    if (algorithm != NULL) { free(algorithm); }
+    if (outfile != NULL) { free(outfile); }
 
     queue_destroy(history_queue);
 
@@ -359,9 +358,9 @@ int main(int argc, char* argv[]) {
             pthread_cond_destroy(&processor_queue_conds[i]);
         }
 
-        free(processor_queues);
-        free(processor_queue_locks);
-        free(processor_queue_conds);
+        if (processor_queues != NULL) { free(processor_queues); }
+        if (processor_queue_locks != NULL) { free(processor_queue_locks); }
+        if (processor_queue_conds != NULL) { free(processor_queue_conds); }
     }
 
     pthread_mutex_destroy(&queue_generator_lock);
@@ -443,7 +442,7 @@ void update_queue_s(char* tasks_source) {
 
                 pcb.arrival_time = gettimeofday_ms() - start_time;
 
-                print_for_outmode(&pcb, pcb.arrival_time, '3',
+                print_for_outmode(&pcb, pcb.arrival_time, outmode,
                                   OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE, -999, outfp);
 
                 if (strcmp(algorithm, "SJF") == 0) {
@@ -471,8 +470,6 @@ void update_queue_s(char* tasks_source) {
 
                 current_iat += iat;
 
-                pthread_mutex_unlock(&queue_generator_lock);
-
                 usleep(iat * 1000);
 
             } else {
@@ -487,7 +484,7 @@ void update_queue_s(char* tasks_source) {
 
     pthread_mutex_lock(&queue_generator_lock);
 
-    print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, '3',
+    print_for_outmode(&dummy_pcb, gettimeofday_ms() - start_time, outmode,
                       OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE, -999, outfp);
 
     // Add a dummy PCB to the queue to indicate the end of the file
@@ -497,8 +494,12 @@ void update_queue_s(char* tasks_source) {
 
     pthread_cond_signal(&queue_generator_cond);
 
-    fclose(fp);
-    free(line);
+    if (fp != NULL) {
+        fclose(fp);
+    }
+    if (line != NULL) {
+        free(line);
+    }
 }
 
 void update_queue_m(char* tasks_source) {

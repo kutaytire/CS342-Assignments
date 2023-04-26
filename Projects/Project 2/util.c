@@ -22,7 +22,7 @@ void print_for_outmode(pcb_t* pcb, long long time, char outmode, enum outmode_3_
                        int where, FILE* fp) {
     if (outmode == '2') {
         if (pcb != NULL) {
-            if (pcb->is_dummy != 1) {
+            if (pcb->is_dummy != 1 && pcb->id_of_processor != -1 && settings == OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE) {
                 if (fp != NULL) {
                     fprintf(fp, "time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
                             pcb->id_of_processor, pcb->pid, pcb->burst_length, pcb->remaining_time);
@@ -30,7 +30,7 @@ void print_for_outmode(pcb_t* pcb, long long time, char outmode, enum outmode_3_
                     printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
                            pcb->id_of_processor, pcb->pid, pcb->burst_length, pcb->remaining_time);
                 }
-            } else {
+            } else if (pcb->id_of_processor != -1 && settings == OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE) {
                 if (fp != NULL) {
                     fprintf(
                         fp,
@@ -49,10 +49,10 @@ void print_for_outmode(pcb_t* pcb, long long time, char outmode, enum outmode_3_
         if (settings == OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE) {
             if (where == -999) {
                 if (fp != NULL) {
-                    fprintf(fp, "[CPU: main] %s (process details): ",
+                    fprintf(fp, "[CPU: main (received process input)] %s (process details): ",
                             "A burst is to be added to a (ready) queue");
                 } else {
-                    printf("[CPU: main] %s (process details): ",
+                    printf("[CPU: main (received process input)] %s (process details): ",
                            "A burst is to be added to a (ready) queue");
                 }
             } else {
