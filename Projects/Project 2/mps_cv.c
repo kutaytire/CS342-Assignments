@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
     // Parse the arguments
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-n") == 0) {
-            if (argv[i + 1] != NULL && atoi(argv[i + 1]) > 0) {
+            if (argv[i + 1] != NULL && atoi(argv[i + 1]) > 0 && atoi(argv[i + 1]) <= 10) {
                 number_of_processors = atoi(argv[i + 1]);
                 printf("Number of processors: %d\n", number_of_processors);
             } else {
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
             }
 
             if (strcmp(algorithm, "RR") == 0) {
-                if (argv[i + 2] != NULL && atoi(argv[i + 2]) > 0) {
+                if (argv[i + 2] != NULL && atoi(argv[i + 2]) >= 10 && atoi(argv[i + 2]) <= 100) {
                     time_quantum = atoi(argv[i + 2]);
                     printf("Time quantum: %d\n", time_quantum);
                 } else {
@@ -197,25 +197,104 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // } else if (strcmp(argv[i], "-o") == 0) {
-        //     i++;
-        //     strcpy(outfile, argv[i]);
-
         else if (strcmp(argv[i], "-r") == 0) {
             i++;
-            t = atoi(argv[i]);
+            if (argv[i] == NULL) {
+                printf("T value is not specified, falling back to default value: %d\n", DEFAULT_T);
+            }
+            else {
+                if (atoi(argv[i]) <= 0) {
+                    printf("Invalid T value: %d, falling back to default value: %d\n", atoi(argv[i]),
+                           DEFAULT_T);
+                }
+                else {
+                    t = atoi(argv[i]);
+                }
+            }
+
             i++;
-            t1 = atoi(argv[i]);
+            if (argv[i] == NULL) {
+                printf("T1 value is not specified, falling back to default value: %d\n", DEFAULT_T1);
+            }
+            else {
+                if (atoi(argv[i]) < 10) {
+                    printf("Invalid T1 value: %d, T1 should be bigger than or equal to minimum interarrival time 10 ms, falling back to default value: %d\n", atoi(argv[i]),
+                           DEFAULT_T1);
+                }
+                else {
+                    t1 = atoi(argv[i]);
+                }
+            }
+
             i++;
-            t2 = atoi(argv[i]);
+            if (argv[i] == NULL) {
+                printf("T2 value is not specified, falling back to default value: %d\n", DEFAULT_T2);
+            }
+            else {
+                if (atoi(argv[i]) < t1) {
+                    printf("Invalid T2 value: %d, T2 >= T1 should hold, falling back to default value: %d\n", atoi(argv[i]),
+                           DEFAULT_T2);
+                }
+                else {
+                    t2 = atoi(argv[i]);
+                }
+            }
+
             i++;
-            l = atoi(argv[i]);
+            if (argv[i] == NULL) {
+                printf("L value is not specified, falling back to default value: %d\n", DEFAULT_L);
+            }
+            else {
+                if (atoi(argv[i]) <= 0) {
+                    printf("Invalid L value: %d, falling back to default value: %d\n", atoi(argv[i]),
+                           DEFAULT_L);
+                }
+                else {
+                    l = atoi(argv[i]);
+                }
+            }
+
             i++;
-            l1 = atoi(argv[i]);
+            if (argv[i] == NULL) {
+                printf("L1 value is not specified, falling back to default value: %d\n", DEFAULT_L1);
+            }
+            else {
+                if (atoi(argv[i]) < 10) {
+                    printf("Invalid L1 value: %d, L1 should be bigger than or equal to minimum burst length 10 ms, falling back to default value: %d\n", atoi(argv[i]),
+                           DEFAULT_L1);
+                }
+                else {
+                    l1 = atoi(argv[i]);
+                }
+            }
+
             i++;
-            l2 = atoi(argv[i]);
+            if (argv[i] == NULL) {
+                printf("L2 value is not specified, falling back to default value: %d\n", DEFAULT_L2);
+            }
+            else {
+                if (atoi(argv[i]) < l1) {
+                    printf("Invalid L2 value: %d, L2 >= L1 should hold, falling back to default value: %d\n", atoi(argv[i]),
+                           DEFAULT_L2);
+                }
+                else {
+                    l2 = atoi(argv[i]);
+                }
+            }
+
             i++;
-            pc = atoi(argv[i]);
+            if (argv[i] == NULL) {
+                printf("PC value is not specified, falling back to default value: %d\n", DEFAULT_PC);
+            }
+            else {
+                if (atoi(argv[i]) < 0) {
+                    printf("Invalid PC value: %d, falling back to default value: %d\n", atoi(argv[i]),
+                           DEFAULT_PC);
+                }
+                else {
+                    pc = atoi(argv[i]);
+                }
+            }
 
             random_generate = 1;
             printf("The value of t: %d, t1: %d, t2: %d, l: %d, l1: %d, l2: %d, pc: %d\n", t, t1, t2,
