@@ -299,8 +299,8 @@ void print_history_queue(queue_t* queue, FILE* fp) {
     }
 
     if (fp == NULL) {
-        printf("average turnaround time: %f ms\n", total_turnaround / (double)queue->size);
+        printf("average turnaround time: %.2f ms\n", total_turnaround / (double)queue->size);
     } else {
-        fprintf(fp, "average turnaround time: %f ms\n", total_turnaround / (double)queue->size);
+        fprintf(fp, "average turnaround time: %.2f ms\n", total_turnaround / (double)queue->size);
     }
 }

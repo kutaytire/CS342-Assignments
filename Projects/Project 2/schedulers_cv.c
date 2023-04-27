@@ -183,6 +183,7 @@ void* rr(void* args) {
             //                   scheduler_args->id_of_processor);
 
             queue_enqueue(queue, temp_item);
+            pthread_cond_signal(scheduler_args->queue_generator_cond);
         }
 
         item.id_of_processor = scheduler_args->id_of_processor;

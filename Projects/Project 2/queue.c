@@ -7,6 +7,7 @@
 queue_t* queue_create() {
     queue_t* q = (queue_t*)malloc(sizeof(queue_t));
     q->head = NULL;
+    q->tail = NULL;
     q->size = 0;
     return q;
 }
@@ -31,18 +32,16 @@ void queue_enqueue(queue_t* q, queue_item_t item) {
         new_node->item = item;
         new_node->next = NULL;
         q->head = new_node;
+        q->tail = new_node;
         q->size++;
     }
 
     else {
-        queue_node_t* current = q->head;
-        while (current->next != NULL) {
-            current = current->next;
-        }
         queue_node_t* new_node = (queue_node_t*)malloc(sizeof(queue_node_t));
         new_node->item = item;
         new_node->next = NULL;
-        current->next = new_node;
+        q->tail->next = new_node;
+        q->tail = new_node;
         q->size++;
     }
 }
@@ -55,13 +54,21 @@ void queue_sorted_enqueue(queue_t* q, queue_item_t item) {
     if (q->head == NULL || q->size == 0 || item.burst_length < q->head->item.burst_length) {
         new_node->next = q->head;
         q->head = new_node;
+        if (q->tail == NULL) {
+            q->tail = new_node;
+        }
     } else {
         queue_node_t* current = q->head;
-        while (current->next != NULL && current->next->item.burst_length <= item.burst_length) {
+        queue_node_t* prev = NULL;
+        while (current != NULL && current->item.burst_length <= item.burst_length) {
+            prev = current;
             current = current->next;
         }
-        new_node->next = current->next;
-        current->next = new_node;
+        prev->next = new_node;
+        new_node->next = current;
+        if (current == NULL) {
+            q->tail = new_node;
+        }
     }
 
     q->size++;
@@ -81,6 +88,10 @@ queue_item_t queue_dequeue(queue_t* q) {
     free(head);
 
     q->size--;
+
+    if (q->size == 0) {
+        q->tail = NULL;
+    }
 
     return item;
 }

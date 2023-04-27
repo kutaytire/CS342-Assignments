@@ -14,6 +14,7 @@ typedef struct queue_node {
 
 typedef struct {
     queue_node_t* head;
+    queue_node_t* tail;
     int size;
 } queue_t;
 
