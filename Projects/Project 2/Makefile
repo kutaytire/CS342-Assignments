@@ -14,10 +14,10 @@ run: all
 	./$(BIN)/$(EXECUTABLE1)
 	./$(BIN)/$(EXECUTABLE2)
 
-$(BIN)/$(EXECUTABLE1): $(SRC)/mps.c $(SRC)/queue.c $(SRC)/schedulers.c $(SRC)/util.c
+$(BIN)/$(EXECUTABLE1): $(SRC)/mps.c
 	@$(CXX) $(CXX_FLAGS) $^ -lpthread -lm -o $@
 
-$(BIN)/$(EXECUTABLE2): $(SRC)/mps_cv.c $(SRC)/queue.c $(SRC)/schedulers_cv.c $(SRC)/util.c
+$(BIN)/$(EXECUTABLE2): $(SRC)/mps_cv.c
 	@$(CXX) $(CXX_FLAGS) $^ -lpthread -lm -o $@
 
 clean:

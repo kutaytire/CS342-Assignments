@@ -1,16 +1,797 @@
-#include "common_defs.h"
-#include "pcb.h"
-#include "queue.h"
-#include "schedulers.h"
-#include "util.h"
 #include <math.h>
 #include <pthread.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+
+long long start_time;
+
+// common_defs.h
+
+#define DEFAULT_N 2
+#define DEFAULT_SAP 'M'
+#define DEFAULT_QS "RM"
+#define DEFAULT_ALG "RR"
+#define DEFAULT_Q 20
+#define DEFAULT_INFILE NULL
+#define DEFAULT_OUTMODE '1'
+#define DEFAULT_OUTFILE NULL
+#define DEFAULT_T 200
+#define DEFAULT_T1 10
+#define DEFAULT_T2 1000
+#define DEFAULT_L 100
+#define DEFAULT_L1 10
+#define DEFAULT_L2 500
+#define DEFAULT_PC 10
+#define DEFAULT_RANDOM_GENERATE 0
+#define DEFAULT_INPUT_FILE_EXISTS 0
+
+// common_defs.h ends here
+
+// pcb.h
+
+typedef struct {
+    int pid;
+    int burst_length; // the length of the process in ms (PL)
+    long long arrival_time;
+    int remaining_time;
+    long long finish_time;
+    int turnaround_time;
+    long long waiting_time;
+    int id_of_processor; // id of the thread that is running the process
+    int is_dummy;
+} pcb_t;
+
+// pcb.h ends here
+
+// queue.h
+
+typedef pcb_t queue_item_t;
+
+typedef struct queue_node {
+    queue_item_t item;
+    struct queue_node* next;
+} queue_node_t;
+
+typedef struct {
+    queue_node_t* head;
+    queue_node_t* tail;
+    int size;
+} queue_t;
+
+queue_t* queue_create();
+void queue_destroy(queue_t* queue);
+void queue_enqueue(queue_t* queue, queue_item_t item);
+void queue_sorted_enqueue(queue_t* queue, queue_item_t item);
+queue_item_t queue_dequeue(queue_t* queue);
+void queue_sort(queue_t* queue);
+void print_queue(queue_t* queue);
+int get_queue_load(queue_t* q);
+
+// queue.h ends here
+
+// schedulers.h
+
+typedef struct {
+    queue_t* source_queue;
+    int time_quantum;
+    queue_t* history_queue;
+    int id_of_processor;
+    char outmode;
+    FILE* outfile;
+    pthread_mutex_t* queue_generator_lock;
+    pthread_mutex_t* history_queue_lock;
+} scheduler_args_t;
+
+void* fcfs(void* args);
+void* sjf(void* args);
+void* rr(void* args);
+
+// schedulers.h ends here
+
+// util.h
+
+enum outmode_3_settings {
+    OUTMODE_3_SETTINGS_NONE = 0,
+    OUTMODE_3_SETTINGS_CPU_EXITING = 1,
+    OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE = 2,
+    OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE = 4,
+    OUTMODE_3_SETTINGS_PCB_TIME_SLICE_EXPIRED = 8,
+    OUTMODE_3_SETTINGS_PCB_FINISHED = 16,
+    OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI = 32,
+};
+
+long long gettimeofday_ms();
+void print_pcb(pcb_t* pcb);
+void print_for_outmode(pcb_t* pcb, long long time, char outmode, enum outmode_3_settings settings,
+                       int where, FILE* outfile);
+void print_history_queue(queue_t* queue, FILE* outfile);
+
+// util.h ends here
+
+// queue.c
+
+queue_t* queue_create() {
+    queue_t* q = (queue_t*)malloc(sizeof(queue_t));
+    q->head = NULL;
+    q->tail = NULL;
+    q->size = 0;
+    return q;
+}
+
+void queue_destroy(queue_t* q) {
+    if (q == NULL) {
+        return;
+    }
+
+    queue_node_t* current = q->head;
+    while (current != NULL) {
+        queue_node_t* next = current->next;
+        free(current);
+        current = next;
+    }
+    free(q);
+}
+
+void queue_enqueue(queue_t* q, queue_item_t item) {
+    if (q->head == NULL || q->size == 0) {
+        queue_node_t* new_node = (queue_node_t*)malloc(sizeof(queue_node_t));
+        new_node->item = item;
+        new_node->next = NULL;
+        q->head = new_node;
+        q->tail = new_node;
+        q->size++;
+    }
+
+    else {
+        queue_node_t* new_node = (queue_node_t*)malloc(sizeof(queue_node_t));
+        new_node->item = item;
+        new_node->next = NULL;
+        q->tail->next = new_node;
+        q->tail = new_node;
+        q->size++;
+    }
+}
+
+void queue_sorted_enqueue(queue_t* q, queue_item_t item) {
+    queue_node_t* new_node = (queue_node_t*)malloc(sizeof(queue_node_t));
+    new_node->item = item;
+    new_node->next = NULL;
+
+    if (q->head == NULL || q->size == 0 || item.burst_length < q->head->item.burst_length) {
+        new_node->next = q->head;
+        q->head = new_node;
+        if (q->tail == NULL) {
+            q->tail = new_node;
+        }
+    } else {
+        queue_node_t* current = q->head;
+        queue_node_t* prev = NULL;
+        while (current != NULL && current->item.burst_length <= item.burst_length) {
+            prev = current;
+            current = current->next;
+        }
+        prev->next = new_node;
+        new_node->next = current;
+        if (current == NULL) {
+            q->tail = new_node;
+        }
+    }
+
+    q->size++;
+}
+
+queue_item_t queue_dequeue(queue_t* q) {
+    queue_node_t* head = q->head;
+    queue_node_t* next = head->next;
+    queue_item_t item = head->item;
+
+    // printf("DEQUEUEING\n");
+    // print_pcb(&item);
+
+    q->head = next;
+
+    head->next = NULL;
+    free(head);
+
+    q->size--;
+
+    if (q->size == 0) {
+        q->tail = NULL;
+    }
+
+    return item;
+}
+
+void queue_sort(queue_t* q) {
+    if (q == NULL || q->size <= 1) {
+        return;
+    }
+    queue_t* q1 = queue_create();
+    queue_t* q2 = queue_create();
+    int i, half_size = q->size / 2;
+    for (i = 0; i < half_size; i++) {
+        queue_enqueue(q1, queue_dequeue(q));
+    }
+    while (q->size > 0) {
+        queue_enqueue(q2, queue_dequeue(q));
+    }
+    queue_sort(q1);
+    queue_sort(q2);
+    while (q1->size > 0 && q2->size > 0) {
+        queue_item_t item1 = q1->head->item;
+        queue_item_t item2 = q2->head->item;
+        if (item1.pid <= item2.pid) {
+            queue_enqueue(q, queue_dequeue(q1));
+        } else {
+            queue_enqueue(q, queue_dequeue(q2));
+        }
+    }
+    while (q1->size > 0) {
+        queue_enqueue(q, queue_dequeue(q1));
+    }
+    while (q2->size > 0) {
+        queue_enqueue(q, queue_dequeue(q2));
+    }
+    queue_destroy(q1);
+    queue_destroy(q2);
+}
+
+void print_queue(queue_t* q) {
+    queue_node_t* current = q->head;
+    while (current != NULL) {
+        print_pcb(&current->item);
+        current = current->next;
+    }
+}
+
+int get_queue_load(queue_t* q) {
+    int total_load = 0;
+    queue_node_t* current = q->head;
+
+    while (current != NULL) {
+        total_load = total_load + current->item.remaining_time;
+        current = current->next;
+    }
+
+    return total_load;
+}
+
+// queue.c ends here
+
+// schedulers.c
+
+void* fcfs(void* args) {
+    scheduler_args_t* scheduler_args = (scheduler_args_t*)args;
+
+    // Get the queue
+    queue_t* queue = scheduler_args->source_queue;
+    // Get the history queue
+    queue_t* history_queue = scheduler_args->history_queue;
+
+    while (1) {
+        // Lock the queue
+        pthread_mutex_lock(scheduler_args->queue_generator_lock);
+
+        while (!(queue->size > 0)) {
+            pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+            usleep(1000); // Sleep for 1 ms
+            pthread_mutex_lock(scheduler_args->queue_generator_lock);
+        }
+
+        // Get the next process
+        pcb_t item = queue_dequeue(queue);
+        if (item.is_dummy != 0) {
+            long long current_time = gettimeofday_ms() - start_time;
+            // print_for_outmode(&item, current_time, scheduler_args->outmode,
+            //                   OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE,
+            //                   scheduler_args->id_of_processor);
+
+            print_for_outmode(NULL, current_time, scheduler_args->outmode,
+                              OUTMODE_3_SETTINGS_CPU_EXITING, scheduler_args->id_of_processor,
+                              scheduler_args->outfile);
+            queue_enqueue(queue, item);
+            pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+            break;
+        }
+
+        item.id_of_processor = scheduler_args->id_of_processor;
+
+        pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+
+        print_for_outmode(&item, gettimeofday_ms() - start_time, scheduler_args->outmode,
+                          OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE,
+                          scheduler_args->id_of_processor, scheduler_args->outfile);
+
+        usleep(item.burst_length * 1000);
+
+        long long current_time = gettimeofday_ms() - start_time;
+        item.remaining_time = 0;
+        item.finish_time = current_time;
+        item.turnaround_time = item.finish_time - item.arrival_time;
+        item.waiting_time = item.turnaround_time - item.burst_length;
+
+        print_for_outmode(&item, item.finish_time, scheduler_args->outmode,
+                          OUTMODE_3_SETTINGS_PCB_FINISHED, scheduler_args->id_of_processor,
+                          scheduler_args->outfile);
+
+        pthread_mutex_lock(scheduler_args->history_queue_lock);
+        queue_enqueue(history_queue, item);
+        pthread_mutex_unlock(scheduler_args->history_queue_lock);
+    }
+
+    return NULL;
+}
+
+void* sjf(void* args) {
+    scheduler_args_t* scheduler_args = (scheduler_args_t*)args;
+
+    // Get the queue
+    queue_t* queue = scheduler_args->source_queue;
+    // Get the history queue
+    queue_t* history_queue = scheduler_args->history_queue;
+
+    while (1) {
+        // Lock the queue
+        pthread_mutex_lock(scheduler_args->queue_generator_lock);
+
+        while (!(queue->size > 0)) {
+            pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+            usleep(1000);
+            pthread_mutex_lock(scheduler_args->queue_generator_lock);
+        }
+
+        // Get the next process
+        pcb_t item = queue_dequeue(queue);
+        if (item.is_dummy != 0) {
+            long long current_time = gettimeofday_ms() - start_time;
+
+            // print_for_outmode(&item, current_time, scheduler_args->outmode,
+            //                   OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE,
+            //                   scheduler_args->id_of_processor);
+
+            print_for_outmode(NULL, current_time, scheduler_args->outmode,
+                              OUTMODE_3_SETTINGS_CPU_EXITING, scheduler_args->id_of_processor,
+                              scheduler_args->outfile);
+
+            queue_enqueue(queue, item);
+            pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+            break;
+        }
+
+        item.id_of_processor = scheduler_args->id_of_processor;
+        // printf("PICKING UP PCB\n");
+        // print_pcb(&item);
+
+        pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+
+        print_for_outmode(&item, gettimeofday_ms() - start_time, scheduler_args->outmode,
+                          OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE,
+                          scheduler_args->id_of_processor, scheduler_args->outfile);
+
+        usleep(item.burst_length * 1000);
+
+        long long current_time = gettimeofday_ms() - start_time;
+        item.remaining_time = 0;
+        item.finish_time = current_time;
+        item.turnaround_time = item.finish_time - item.arrival_time;
+        item.waiting_time = item.turnaround_time - item.burst_length;
+
+        print_for_outmode(&item, item.finish_time, scheduler_args->outmode,
+                          OUTMODE_3_SETTINGS_PCB_FINISHED, scheduler_args->id_of_processor,
+                          scheduler_args->outfile);
+
+        pthread_mutex_lock(scheduler_args->history_queue_lock);
+        queue_enqueue(history_queue, item);
+        pthread_mutex_unlock(scheduler_args->history_queue_lock);
+    }
+
+    return NULL;
+}
+
+void* rr(void* args) {
+    scheduler_args_t* scheduler_args = (scheduler_args_t*)args;
+
+    // Get the queue
+    queue_t* queue = scheduler_args->source_queue;
+    // Get the history queue
+    queue_t* history_queue = scheduler_args->history_queue;
+
+    while (1) {
+        // Lock the queue
+        pthread_mutex_lock(scheduler_args->queue_generator_lock);
+
+        while (!(queue->size > 0)) {
+            pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+            usleep(1000);
+            pthread_mutex_lock(scheduler_args->queue_generator_lock);
+        }
+
+        // Get the next process
+        pcb_t item = queue_dequeue(queue);
+        if (queue->size < 1 && item.is_dummy != 0) {
+            long long current_time = gettimeofday_ms() - start_time;
+            // print_for_outmode(&item, current_time, scheduler_args->outmode,
+            //                   OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE,
+            //                   scheduler_args->id_of_processor);
+
+            print_for_outmode(NULL, current_time, scheduler_args->outmode,
+                              OUTMODE_3_SETTINGS_CPU_EXITING, scheduler_args->id_of_processor,
+                              scheduler_args->outfile);
+
+            queue_enqueue(queue, item);
+            pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+            break;
+        } else if (item.is_dummy != 0) {
+            pcb_t temp_item = item;
+            item = queue_dequeue(queue);
+
+            // print_for_outmode(&temp_item, gettimeofday_ms() - start_time,
+            // scheduler_args->outmode,
+            //                   OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE,
+            //                   scheduler_args->id_of_processor);
+
+            queue_enqueue(queue, temp_item);
+        }
+
+        item.id_of_processor = scheduler_args->id_of_processor;
+
+        pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+
+        print_for_outmode(&item, gettimeofday_ms() - start_time, scheduler_args->outmode,
+                          OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE,
+                          scheduler_args->id_of_processor, scheduler_args->outfile);
+
+        if (item.remaining_time > scheduler_args->time_quantum) {
+            usleep(scheduler_args->time_quantum * 1000);
+            item.remaining_time -= scheduler_args->time_quantum;
+
+            long long current_time = gettimeofday_ms() - start_time;
+
+            print_for_outmode(&item, current_time, scheduler_args->outmode,
+                              OUTMODE_3_SETTINGS_PCB_TIME_SLICE_EXPIRED,
+                              scheduler_args->id_of_processor, scheduler_args->outfile);
+            print_for_outmode(&item, current_time, scheduler_args->outmode,
+                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE,
+                              scheduler_args->id_of_processor, scheduler_args->outfile);
+
+            pthread_mutex_lock(scheduler_args->queue_generator_lock);
+            queue_enqueue(queue, item);
+            pthread_mutex_unlock(scheduler_args->queue_generator_lock);
+        } else {
+            usleep(item.remaining_time * 1000);
+            long long current_time = gettimeofday_ms() - start_time;
+            item.remaining_time = 0;
+            item.finish_time = current_time;
+            item.turnaround_time = item.finish_time - item.arrival_time;
+            item.waiting_time = item.turnaround_time - item.burst_length;
+
+            print_for_outmode(&item, item.finish_time, scheduler_args->outmode,
+                              OUTMODE_3_SETTINGS_PCB_FINISHED, scheduler_args->id_of_processor,
+                              scheduler_args->outfile);
+
+            pthread_mutex_lock(scheduler_args->history_queue_lock);
+            queue_enqueue(history_queue, item);
+            pthread_mutex_unlock(scheduler_args->history_queue_lock);
+        }
+    }
+
+    return NULL;
+}
+
+// schedulers.c ends here
+
+// util.c
+
+long long gettimeofday_ms() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * 1000.0 + tv.tv_usec / 1000.0;
+}
+
+void print_pcb(pcb_t* pcb) {
+    printf("PID: %d, Burst Length: %d, Arrival Time: %lld, Remaining Time: %d, Finish Time: "
+           "%lld, Turnaround Time: %d, Waiting Time: %lld, ID of Processor: %d\n",
+           pcb->pid, pcb->burst_length, pcb->arrival_time, pcb->remaining_time, pcb->finish_time,
+           pcb->turnaround_time, pcb->waiting_time, pcb->id_of_processor);
+}
+
+void print_for_outmode(pcb_t* pcb, long long time, char outmode, enum outmode_3_settings settings,
+                       int where, FILE* fp) {
+    if (outmode == '1') {
+        return;
+    }
+
+    else if (outmode == '2') {
+        if (pcb != NULL) {
+            if (pcb->is_dummy != 1 && pcb->id_of_processor != -1 &&
+                settings == OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE) {
+                if (fp != NULL) {
+                    fprintf(fp, "time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                            pcb->id_of_processor, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                } else {
+                    printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                           pcb->id_of_processor, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                }
+            } else if (pcb->id_of_processor != -1 &&
+                       settings == OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE) {
+                if (fp != NULL) {
+                    fprintf(
+                        fp,
+                        "time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, remainingtime=NaN\n",
+                        time, pcb->id_of_processor);
+                } else {
+                    printf(
+                        "time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, remainingtime=NaN\n",
+                        time, pcb->id_of_processor);
+                }
+            }
+        }
+    }
+
+    else if (outmode == '3') {
+        if (settings == OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE) {
+            if (where == -999) {
+                if (fp != NULL) {
+                    fprintf(fp, "[CPU: main (received process input)] %s (process details): ",
+                            "A burst is to be added to a (ready) queue");
+                } else {
+                    printf("[CPU: main (received process input)] %s (process details): ",
+                           "A burst is to be added to a (ready) queue");
+                }
+            } else {
+                if (fp != NULL) {
+                    fprintf(fp, "[CPU: %d] %s (process details): ", where,
+                            "A burst is to be added to a (ready) queue");
+                } else {
+                    printf("[CPU: %d] %s (process details): ", where,
+                           "A burst is to be added to a (ready) queue");
+                }
+            }
+            if (pcb != NULL) {
+                if (where == -999) {
+                    if (pcb->is_dummy != 1) {
+                        if (fp != NULL) {
+                            fprintf(fp,
+                                    "time=%lld, cpu=main, pid=%d, burstlen=%d, remainingtime=%d\n",
+                                    time, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                        } else {
+                            printf("time=%lld, cpu=main, pid=%d, burstlen=%d, remainingtime=%d\n",
+                                   time, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                        }
+                    } else {
+                        if (fp != NULL) {
+                            fprintf(fp,
+                                    "time=%lld, cpu=main, pid=dummy process, burstlen=NaN, "
+                                    "remainingtime=NaN\n",
+                                    time);
+                        } else {
+                            printf("time=%lld, cpu=main, pid=dummy process, burstlen=NaN, "
+                                   "remainingtime=NaN\n",
+                                   time);
+                        }
+                    }
+                } else {
+                    if (pcb->is_dummy != 1) {
+                        if (fp != NULL) {
+                            fprintf(fp,
+                                    "time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n",
+                                    time, where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                        } else {
+                            printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n",
+                                   time, where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                        }
+                    } else {
+                        if (fp != NULL) {
+                            fprintf(fp,
+                                    "time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                                    "remainingtime=NaN\n",
+                                    time, where);
+                        } else {
+                            printf("time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                                   "remainingtime=NaN\n",
+                                   time, where);
+                        }
+                    }
+                }
+            }
+        }
+
+        else if (settings == OUTMODE_3_SETTINGS_CPU_EXITING) {
+            if (where == -999) {
+                if (fp != NULL) {
+                    fprintf(fp, "[CPU: main] %s at time: %lld\n", "A CPU is exiting", time);
+                } else {
+                    printf("[CPU: main] %s at time: %lld\n", "A CPU is exiting", time);
+                }
+
+            } else {
+                if (fp != NULL) {
+                    fprintf(fp, "[CPU: %d] %s at time: %lld\n", where, "A CPU is exiting", time);
+                } else {
+                    printf("[CPU: %d] %s at time: %lld\n", where, "A CPU is exiting", time);
+                }
+            }
+        }
+
+        else if (settings == OUTMODE_3_SETTINGS_PCB_PICKED_FROM_READY_QUEUE) {
+            if (fp == NULL) {
+                printf("[CPU: %d] %s (process details): ", where, "A burst is picked for CPU");
+            } else {
+                fprintf(fp, "[CPU: %d] %s (process details): ", where, "A burst is picked for CPU");
+            }
+
+            if (pcb != NULL) {
+                if (pcb->is_dummy != 1) {
+                    if (fp != NULL) {
+                        fprintf(fp, "time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n",
+                                time, where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                    } else {
+                        printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                               where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                    }
+                } else {
+                    if (fp != NULL) {
+                        fprintf(fp,
+                                "time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                                "remainingtime=NaN\n",
+                                time, where);
+                    } else {
+                        printf("time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                               "remainingtime=NaN\n",
+                               time, where);
+                    }
+                }
+            }
+        }
+
+        else if (settings == OUTMODE_3_SETTINGS_PCB_FINISHED) {
+            if (fp == NULL) {
+                printf("[CPU: %d] %s (process details): ", where, "A burst has finished");
+
+            } else {
+                fprintf(fp, "[CPU: %d] %s (process details): ", where, "A burst has finished");
+            }
+
+            if (pcb != NULL) {
+                if (pcb->is_dummy != 1) {
+                    if (fp != NULL) {
+                        fprintf(fp, "time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n",
+                                time, where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                    } else {
+                        printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                               where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                    }
+                } else {
+                    if (fp != NULL) {
+                        fprintf(fp,
+                                "time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                                "remainingtime=NaN\n",
+                                time, where);
+                    } else {
+                        printf("time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                               "remainingtime=NaN\n",
+                               time, where);
+                    }
+                }
+            }
+        }
+
+        else if (settings == OUTMODE_3_SETTINGS_PCB_TIME_SLICE_EXPIRED) {
+            if (fp != NULL) {
+                fprintf(fp, "[CPU: %d] %s (process details): ", where,
+                        "The time slice expired for a burst");
+            } else {
+                printf("[CPU: %d] %s (process details): ", where,
+                       "The time slice expired for a burst");
+            }
+
+            if (pcb != NULL) {
+                if (pcb->is_dummy != 1) {
+                    if (fp != NULL) {
+                        fprintf(fp, "time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n",
+                                time, where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                    } else {
+                        printf("time=%lld, cpu=%d, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                               where, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                    }
+                } else {
+                    if (fp != NULL) {
+                        fprintf(fp,
+                                "time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                                "remainingtime=NaN\n",
+                                time, where);
+                    } else {
+                        printf("time=%lld, cpu=%d, pid=dummy process, burstlen=NaN, "
+                               "remainingtime=NaN\n",
+                               time, where);
+                    }
+                }
+            }
+        }
+
+        else if (settings == OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI) {
+            if (fp != NULL) {
+                fprintf(fp, "[CPU: main] A burst is to be added to the (ready) queue of CPU %d: ",
+                        where);
+            } else {
+                printf("[CPU: main] A burst is to be added to the (ready) queue of CPU %d: ",
+                       where);
+            }
+
+            if (pcb != NULL) {
+                if (pcb->is_dummy != 1) {
+                    if (fp != NULL) {
+                        fprintf(fp, "time=%lld, cpu=main, pid=%d, burstlen=%d, remainingtime=%d\n",
+                                time, pcb->pid, pcb->burst_length, pcb->remaining_time);
+                    } else {
+                        printf("time=%lld, cpu=main, pid=%d, burstlen=%d, remainingtime=%d\n", time,
+                               pcb->pid, pcb->burst_length, pcb->remaining_time);
+                    }
+                } else {
+                    if (fp != NULL) {
+                        fprintf(fp,
+                                "time=%lld, cpu=main, pid=dummy process, burstlen=NaN, "
+                                "remainingtime=NaN\n",
+                                time);
+                    } else {
+                        printf("time=%lld, cpu=main, pid=dummy process, burstlen=NaN, "
+                               "remainingtime=NaN\n",
+                               time);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void print_history_queue(queue_t* queue, FILE* fp) {
+    queue_sort(queue);
+
+    if (queue->size == 0) {
+        printf("No processes in history queue\n");
+        return;
+    }
+
+    int total_turnaround = 0;
+
+    if (fp == NULL) {
+        printf("pid\tcpu\tburstlen\tarv\tfinish\twaitingtime\tturnaround\n");
+    } else {
+        fprintf(fp, "pid\tcpu\tburstlen\tarv\t\tfinish\twaitingtime\tturnaround\n");
+    }
+    queue_node_t* cur = queue->head;
+
+    while (cur != NULL) {
+        total_turnaround += cur->item.turnaround_time;
+
+        if (fp == NULL) {
+            printf("%d\t%d\t%d\t\t%lld\t%lld\t%lld\t\t%d\n", cur->item.pid,
+                   cur->item.id_of_processor, cur->item.burst_length, cur->item.arrival_time,
+                   cur->item.finish_time, cur->item.waiting_time, cur->item.turnaround_time);
+        } else {
+            fprintf(fp, "%d\t%d\t%d\t\t\t%lld\t\t%lld\t\t%lld\t\t\t%d\n", cur->item.pid,
+                    cur->item.id_of_processor, cur->item.burst_length, cur->item.arrival_time,
+                    cur->item.finish_time, cur->item.waiting_time, cur->item.turnaround_time);
+        }
+
+        cur = cur->next;
+    }
+
+    if (fp == NULL) {
+        printf("average turnaround time: %.2f ms\n", total_turnaround / (double)queue->size);
+    } else {
+        fprintf(fp, "average turnaround time: %.2f ms\n", total_turnaround / (double)queue->size);
+    }
+}
+
+// util.c ends here
+
+// mps.c
 
 // Function Definitions
 void update_queue_s(char* tasks_source);
@@ -50,8 +831,6 @@ pcb_t dummy_pcb = {.pid = -1,
                    .id_of_processor = -1,
                    .is_dummy = 1};
 
-long long start_time;
-
 // Single queue related variables
 queue_t* queue;
 queue_t* history_queue;
@@ -73,7 +852,8 @@ int main(int argc, char* argv[]) {
                 //        DEFAULT_N);
             } else {
                 if (!(atoi(argv[i + 1]) > 0 && atoi(argv[i + 1]) <= 10)) {
-                    // printf("Number of processors is not in range [1, 10], falling back to default: "
+                    // printf("Number of processors is not in range [1, 10], falling back to
+                    // default: "
                     //        "%d\n",
                     //        DEFAULT_N);
                 } else {
@@ -109,7 +889,8 @@ int main(int argc, char* argv[]) {
                     queue_selection_method_exists = 1;
                     // printf("Queue selection method: %s\n", queue_selection_method);
                 } else {
-                    // printf("Queue selection method other than 'NA' (not applicable) is invalid for "
+                    // printf("Queue selection method other than 'NA' (not applicable) is invalid
+                    // for "
                     //        "single queue scheduling approach, falling back to default: %s\n",
                     //        "NA");
                     queue_selection_method = malloc(sizeof(char) * 3);
@@ -120,7 +901,8 @@ int main(int argc, char* argv[]) {
 
             else if (scheduling_approach == 'M') {
                 if (i + 2 >= argc || argv[i + 2] == NULL) {
-                    // printf("Queue selection method is not specified, falling back to default: %s\n",
+                    // printf("Queue selection method is not specified, falling back to default:
+                    // %s\n",
                     //        DEFAULT_QS);
                 } else {
                     if (strcmp(argv[i + 2], "RM") == 0 || strcmp(argv[i + 2], "LM") == 0) {
@@ -129,7 +911,8 @@ int main(int argc, char* argv[]) {
                         queue_selection_method_exists = 1;
                         // printf("Queue selection method: %s\n", queue_selection_method);
                     } else {
-                        // printf("Invalid queue selection method: %s, falling back to default: %s\n",
+                        // printf("Invalid queue selection method: %s, falling back to default:
+                        // %s\n",
                         //        argv[i + 2], DEFAULT_QS);
                     }
                 }
@@ -167,7 +950,8 @@ int main(int argc, char* argv[]) {
                     //        DEFAULT_Q);
                 } else {
                     if (!(atoi(argv[i + 2]) >= 10 && atoi(argv[i + 2]) <= 100)) {
-                        // printf("Time quantum is not in range [10, 100], falling back to default: "
+                        // printf("Time quantum is not in range [10, 100], falling back to default:
+                        // "
                         //        "%d\n",
                         //        DEFAULT_Q);
                     } else {
@@ -179,7 +963,8 @@ int main(int argc, char* argv[]) {
 
             else if (strcmp(algorithm, "FCFS") == 0 || strcmp(algorithm, "SJF") == 0) {
                 if (i + 2 < argc && argv[i + 2] != NULL && strcmp(argv[i + 2], "0") != 0) {
-                    // printf("Time quantum other than 0 is not applicable for %s, falling back to default: %d\n",
+                    // printf("Time quantum other than 0 is not applicable for %s, falling back to
+                    // default: %d\n",
                     //        algorithm, DEFAULT_Q);
                 }
             }
@@ -187,8 +972,10 @@ int main(int argc, char* argv[]) {
 
         else if (strcmp(argv[i], "-i") == 0) {
             if (i + 1 >= argc || argv[i + 1] == NULL) {
-                printf("Input file is not specified, since there is no default input file name determined, "
-                       "program will exit. Please re-run the program with a valid input file name.\n");
+                printf(
+                    "Input file is not specified, since there is no default input file name "
+                    "determined, "
+                    "program will exit. Please re-run the program with a valid input file name.\n");
                 exit(-1);
             } else {
                 input_file = malloc(sizeof(char) * (strlen(argv[i + 1]) + 1));
@@ -200,7 +987,8 @@ int main(int argc, char* argv[]) {
 
         else if (strcmp(argv[i], "-m") == 0) {
             if (i + 1 >= argc || argv[i + 1] == NULL) {
-                // printf("Outmode is not specified, falling back to default outmode: %c\n", outmode);
+                // printf("Outmode is not specified, falling back to default outmode: %c\n",
+                // outmode);
             } else {
                 char mode = argv[i + 1][0];
 
@@ -227,98 +1015,100 @@ int main(int argc, char* argv[]) {
 
         else if (strcmp(argv[i], "-r") == 0) {
             if (i + 1 >= argc || argv[i + 1] == NULL) {
-                // printf("T value is not specified, falling back to default value: %d\n", DEFAULT_T);
-            }
-            else {
+                // printf("T value is not specified, falling back to default value: %d\n",
+                // DEFAULT_T);
+            } else {
                 if (atoi(argv[i + 1]) <= 0) {
-                    // printf("Invalid T value: %d, falling back to default value: %d\n", atoi(argv[i + 1]),
+                    // printf("Invalid T value: %d, falling back to default value: %d\n",
+                    // atoi(argv[i + 1]),
                     //        DEFAULT_T);
-                }
-                else {
+                } else {
                     t = atoi(argv[i + 1]);
                 }
             }
 
             if (i + 2 >= argc || argv[i + 2] == NULL) {
-                // printf("T1 value is not specified, falling back to default value: %d\n", DEFAULT_T1);
-            }
-            else {
+                // printf("T1 value is not specified, falling back to default value: %d\n",
+                // DEFAULT_T1);
+            } else {
                 if (atoi(argv[i + 2]) < 10) {
-                    // printf("Invalid T1 value: %d, T1 should be bigger than or equal to minimum interarrival time 10 ms, falling back to default value: %d\n", atoi(argv[i + 2]),
+                    // printf("Invalid T1 value: %d, T1 should be bigger than or equal to minimum
+                    // interarrival time 10 ms, falling back to default value: %d\n", atoi(argv[i +
+                    // 2]),
                     //        DEFAULT_T1);
-                }
-                else {
+                } else {
                     t1 = atoi(argv[i + 2]);
                 }
             }
 
             if (i + 3 >= argc || argv[i + 3] == NULL) {
-                // printf("T2 value is not specified, falling back to default value: %d\n", DEFAULT_T2);
-            }
-            else {
+                // printf("T2 value is not specified, falling back to default value: %d\n",
+                // DEFAULT_T2);
+            } else {
                 if (atoi(argv[i + 3]) < t1) {
-                    // printf("Invalid T2 value: %d, T2 >= T1 should hold, falling back to default value: %d\n", atoi(argv[i + 3]),
+                    // printf("Invalid T2 value: %d, T2 >= T1 should hold, falling back to default
+                    // value: %d\n", atoi(argv[i + 3]),
                     //        DEFAULT_T2);
-                }
-                else {
+                } else {
                     t2 = atoi(argv[i + 3]);
                 }
             }
 
             if (i + 4 >= argc || argv[i + 4] == NULL) {
-                // printf("L value is not specified, falling back to default value: %d\n", DEFAULT_L);
-            }
-            else {
+                // printf("L value is not specified, falling back to default value: %d\n",
+                // DEFAULT_L);
+            } else {
                 if (atoi(argv[i + 4]) <= 0) {
-                    // printf("Invalid L value: %d, falling back to default value: %d\n", atoi(argv[i + 4]),
+                    // printf("Invalid L value: %d, falling back to default value: %d\n",
+                    // atoi(argv[i + 4]),
                     //        DEFAULT_L);
-                }
-                else {
+                } else {
                     l = atoi(argv[i + 4]);
                 }
             }
 
             if (i + 5 >= argc || argv[i + 5] == NULL) {
-                // printf("L1 value is not specified, falling back to default value: %d\n", DEFAULT_L1);
-            }
-            else {
+                // printf("L1 value is not specified, falling back to default value: %d\n",
+                // DEFAULT_L1);
+            } else {
                 if (atoi(argv[i + 5]) < 10) {
-                    // printf("Invalid L1 value: %d, L1 should be bigger than or equal to minimum burst length 10 ms, falling back to default value: %d\n", atoi(argv[i + 5]),
+                    // printf("Invalid L1 value: %d, L1 should be bigger than or equal to minimum
+                    // burst length 10 ms, falling back to default value: %d\n", atoi(argv[i + 5]),
                     //        DEFAULT_L1);
-                }
-                else {
+                } else {
                     l1 = atoi(argv[i + 5]);
                 }
             }
 
             if (i + 6 >= argc || argv[i + 6] == NULL) {
-                // printf("L2 value is not specified, falling back to default value: %d\n", DEFAULT_L2);
-            }
-            else {
+                // printf("L2 value is not specified, falling back to default value: %d\n",
+                // DEFAULT_L2);
+            } else {
                 if (atoi(argv[i + 6]) < l1) {
-                    // printf("Invalid L2 value: %d, L2 >= L1 should hold, falling back to default value: %d\n", atoi(argv[i + 6]),
+                    // printf("Invalid L2 value: %d, L2 >= L1 should hold, falling back to default
+                    // value: %d\n", atoi(argv[i + 6]),
                     //        DEFAULT_L2);
-                }
-                else {
+                } else {
                     l2 = atoi(argv[i + 6]);
                 }
             }
 
             if (i + 7 >= argc || argv[i + 7] == NULL) {
-                // printf("PC value is not specified, falling back to default value: %d\n", DEFAULT_PC);
-            }
-            else {
+                // printf("PC value is not specified, falling back to default value: %d\n",
+                // DEFAULT_PC);
+            } else {
                 if (atoi(argv[i + 7]) < 0) {
-                    // printf("Invalid PC value: %d, falling back to default value: %d\n", atoi(argv[i + 7]),
+                    // printf("Invalid PC value: %d, falling back to default value: %d\n",
+                    // atoi(argv[i + 7]),
                     //        DEFAULT_PC);
-                }
-                else {
+                } else {
                     pc = atoi(argv[i + 7]);
                 }
             }
 
             random_generate = 1;
-            // printf("The value of t: %d, t1: %d, t2: %d, l: %d, l1: %d, l2: %d, pc: %d\n", t, t1, t2,
+            // printf("The value of t: %d, t1: %d, t2: %d, l: %d, l1: %d, l2: %d, pc: %d\n", t, t1,
+            // t2,
             //        l, l1, l2, pc);
         }
     }
@@ -398,6 +1188,7 @@ int main(int argc, char* argv[]) {
                 .queue_generator_lock = (scheduling_approach == 'S') ? &queue_generator_lock
                                                                      : &processor_queue_locks[i],
                 .history_queue_lock = &history_queue_lock};
+
             if (pthread_create(&threads[i], NULL, rr, (void*)&args[i]) != 0) {
                 printf("Error: Thread creation failed.\n");
                 exit(-1);
@@ -432,11 +1223,18 @@ int main(int argc, char* argv[]) {
 
     pthread_mutex_unlock(&history_queue_lock);
 
-    // TODO: Free memory allocated for dynamically allocated strings
-    if (queue_selection_method != NULL && queue_selection_method_exists == 1) { free(queue_selection_method); }
-    if (input_file != NULL && input_file_exists == 1) { free(input_file); }
-    if (algorithm != NULL && algorithm_exists == 1) { free(algorithm); }
-    if (outfile != NULL) { free(outfile); }
+    if (queue_selection_method != NULL && queue_selection_method_exists == 1) {
+        free(queue_selection_method);
+    }
+    if (input_file != NULL && input_file_exists == 1) {
+        free(input_file);
+    }
+    if (algorithm != NULL && algorithm_exists == 1) {
+        free(algorithm);
+    }
+    if (outfile != NULL) {
+        free(outfile);
+    }
 
     queue_destroy(history_queue);
 
@@ -448,8 +1246,12 @@ int main(int argc, char* argv[]) {
             pthread_mutex_destroy(&processor_queue_locks[i]);
         }
 
-        if (processor_queues != NULL) { free(processor_queues); }
-        if (processor_queue_locks != NULL) { free(processor_queue_locks); }
+        if (processor_queues != NULL) {
+            free(processor_queues);
+        }
+        if (processor_queue_locks != NULL) {
+            free(processor_queue_locks);
+        }
     }
 
     pthread_mutex_destroy(&queue_generator_lock);
@@ -647,7 +1449,6 @@ void update_queue_m(char* tasks_source) {
                              .is_dummy = 0};
 
                 if (strcmp(queue_selection_method, "RM") == 0) {
-
                     int queue_id = last_pid % number_of_processors;
 
                     if (queue_id == 0)
@@ -691,14 +1492,13 @@ void update_queue_m(char* tasks_source) {
                     pcb.arrival_time = gettimeofday_ms() - start_time;
 
                     print_for_outmode(&pcb, pcb.arrival_time, outmode,
-                                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min + 1,
-                                      outfp);
+                                      OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI,
+                                      id_of_min + 1, outfp);
 
                     if (strcmp(algorithm, "SJF") == 0) {
                         queue_sorted_enqueue(processor_queues[id_of_min], pcb);
                     } else {
                         queue_enqueue(processor_queues[id_of_min], pcb);
-
                     }
 
                     pthread_mutex_unlock(&processor_queue_locks[id_of_min]);
@@ -784,8 +1584,8 @@ void update_queue_s_random() {
         pthread_mutex_lock(&queue_generator_lock);
         pcb.arrival_time = gettimeofday_ms() - start_time;
 
-        print_for_outmode(&pcb, pcb.arrival_time, outmode, OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE,
-                          -999, outfp);
+        print_for_outmode(&pcb, pcb.arrival_time, outmode,
+                          OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE, -999, outfp);
 
         if (strcmp(algorithm, "SJF") == 0) {
             queue_sorted_enqueue(queue, pcb);
@@ -824,7 +1624,6 @@ void update_queue_s_random() {
     queue_enqueue(queue, dummy_pcb);
 
     pthread_mutex_unlock(&queue_generator_lock);
-
 }
 
 void update_queue_m_random() {
@@ -843,7 +1642,6 @@ void update_queue_m_random() {
             // printf("Random u is: %f\n", random_u);
 
             random_burst_length = log(1 - random_u) / -lambda;
-
 
         } while (random_burst_length < l1 || random_burst_length > l2);
 
@@ -864,7 +1662,6 @@ void update_queue_m_random() {
                      .is_dummy = 0};
 
         if (strcmp(queue_selection_method, "RM") == 0) {
-
             int queue_id = count % number_of_processors;
 
             if (queue_id == 0)
@@ -875,8 +1672,7 @@ void update_queue_m_random() {
             pcb.arrival_time = gettimeofday_ms() - start_time;
 
             print_for_outmode(&pcb, pcb.arrival_time, outmode,
-                            OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, queue_id,
-                            outfp);
+                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, queue_id, outfp);
 
             if (strcmp(algorithm, "SJF") == 0) {
                 queue_sorted_enqueue(processor_queues[queue_id - 1], pcb);
@@ -914,7 +1710,8 @@ void update_queue_m_random() {
             pcb.arrival_time = gettimeofday_ms() - start_time;
 
             print_for_outmode(&pcb, pcb.arrival_time, outmode,
-                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min + 1, outfp);
+                              OUTMODE_3_SETTINGS_PCB_ADDED_TO_READY_QUEUE_MULTI, id_of_min + 1,
+                              outfp);
 
             if (strcmp(algorithm, "SJF") == 0) {
                 queue_sorted_enqueue(processor_queues[id_of_min], pcb);
@@ -960,3 +1757,5 @@ void update_queue_m_random() {
         pthread_mutex_unlock(&processor_queue_locks[i]);
     }
 }
+
+// mps.c ends here
