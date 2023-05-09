@@ -24,6 +24,7 @@ int num_resources;   // number of resource types
 int existing_res[MAXR]; // Existing resources vector
 int max_demand[MAXP][MAXR];
 int allocation[MAXP][MAXR];
+// int need_matrix[MAXP][MAXR];
 int available_res[MAXR];
 thread_info threads[MAXP];
 
@@ -62,6 +63,7 @@ int rm_init(int p_count, int r_count, int r_exist[],  int avoid)
         for (int j = 0; j < num_resources; j++) {
             max_demand[i][j] = 0;
             allocation[i][j] = 0;
+            // need_matrix[i][j] = max_demand[i][j] - allocation[i][j];
         }
     }
 
@@ -105,6 +107,14 @@ int rm_thread_ended()
         return -1; // invalid tid or thread not started
     }
 
+    int real_tid = -1;
+    for (int i = 0; i < num_threads; i++) {
+        if ((long) threads[i].tid == tid) {
+            real_tid = i;
+            break;
+        }
+    }
+
     // Free all the resources held by the thread
     int i;
     for (i = 0; i < num_resources; i++) {
@@ -119,7 +129,15 @@ int rm_thread_ended()
 
 int rm_claim (int claim[])
 {
-    pthread_t tid = pthread_self();
+    long tid = (long) pthread_self();
+
+    int real_tid = -1;
+    for (int i = 0; i < num_threads; i++) {
+        if ((long) threads[i].tid == tid) {
+            real_tid = i;
+            break;
+        }
+    }
 
     for (int i = 0; i < num_resources; i++) {
         // Check if claim is valid
@@ -127,16 +145,23 @@ int rm_claim (int claim[])
             return -1;
         }
         // Update max_demand matrix with claim information
-        max_demand[(long) tid][i] = claim[i];
+        max_demand[real_tid][i] = claim[i];
     }
     return 0;
 }
 
 int rm_request (int request[])
 {
-
     int allocate = 1;
-    pthread_t tid = pthread_self();
+    long tid = (long) pthread_self();
+
+    int real_tid = -1;
+    for (int i = 0; i < num_threads; i++) {
+        if ((long) threads[i].tid == tid) {
+            real_tid = i;
+            break;
+        }
+    }
 
     // First check whether the request can be granted in the first place
     pthread_mutex_lock(&lock);
@@ -168,7 +193,7 @@ int rm_request (int request[])
         for(int k = 0; k < num_resources; k++) {
             available_res_copy[k] = available_res[k];
 
-            allocation_copy[(long) tid][k] += request[k];
+            allocation_copy[real_tid][k] += request[k];
             available_res_copy[k] -= request[k];
         }
 
@@ -206,7 +231,7 @@ int rm_request (int request[])
                         // Give -1 for the need matrix entries to prevent processing again
                         need_matrix[i][j] = -1;
                         // Update available resources (Assume the process is finished)
-                        available_res_cop[j] += allocation_copy[i][j];
+                        available_res_copy[j] += allocation_copy[i][j];
                     }
                 }
             }
@@ -221,21 +246,22 @@ int rm_request (int request[])
         for (int i = 0; i < num_resources; i++) {
 
             if(existing_res[i] != available_res_copy[i])
-                allocate = 0;   
+                allocate = 0;
         }
     }
 
     while (!allocate) {
-        pthread_cond_wait(&conds[tid], &lock);
+        threads[real_tid].state = WAITING;
+        pthread_cond_wait(&conds[real_tid], &lock);
     }
 
     for (int i = 0; i < num_resources; i++) {
 
-        allocation[(long) tid][i] += request[i];
-        available_res[i] -= request[i]; 
+        allocation[real_tid][i] += request[i];
+        available_res[i] -= request[i];
     }
     pthread_mutex_unlock(&lock);
-   
+
     int ret = 0;
 
     return(ret);
@@ -244,9 +270,41 @@ int rm_request (int request[])
 
 int rm_release (int release[])
 {
-    int ret = 0;
+    if (pthread_mutex_lock(&lock) != 0) {
+        fprintf(stderr, "Error: failed to lock mutex\n");
+        return -1;
+    }
 
-    return (ret);
+    long tid = (long) pthread_self();
+    int real_tid = -1;
+    for (int i = 0; i < num_threads; i++) {
+        if ((long) threads[i].tid == tid) {
+            real_tid = i;
+            break;
+        }
+    }
+
+    for (int i = 0; i < num_resources; i++) {
+        if (release[i] < 0) {
+            fprintf(stderr, "Error: attempting to release negative instances of resource type %d\n", i);
+            pthread_mutex_unlock(&lock);
+            return -1;
+        }
+
+        available_res[i] += release[i];
+        allocation[real_tid][i] -= release[i];
+    }
+
+    for (int i = 0; i < num_threads; i++) {
+        if (threads[i].state == WAITING && !rm_request(allocation[i])) {
+            threads[i].state = RUNNING;
+            pthread_cond_signal(&conds[i]);
+        }
+    }
+
+    pthread_mutex_unlock(&lock);
+
+    return 0;
 }
 
 
