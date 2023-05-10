@@ -1,5 +1,5 @@
 
-all: librm.a  app
+all: clean librm.a  app
 
 librm.a:  rm.c
 	gcc -Wall -c rm.c
@@ -9,5 +9,5 @@ librm.a:  rm.c
 app: app.c
 	gcc -Wall -o app app.c -L. -lrm -lpthread
 
-clean: 
+clean:
 	rm -fr *.o *.a *~ a.out  app rm.o rm.a librm.a

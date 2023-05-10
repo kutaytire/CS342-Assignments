@@ -24,7 +24,8 @@ int num_resources;   // number of resource types
 int existing_res[MAXR]; // Existing resources vector
 int max_demand[MAXP][MAXR];
 int allocation[MAXP][MAXR];
-// int need_matrix[MAXP][MAXR];
+int need_matrix[MAXP][MAXR];
+int request_matrix[MAXP][MAXR];
 int available_res[MAXR];
 thread_info threads[MAXP];
 
@@ -63,7 +64,7 @@ int rm_init(int p_count, int r_count, int r_exist[],  int avoid)
         for (int j = 0; j < num_resources; j++) {
             max_demand[i][j] = 0;
             allocation[i][j] = 0;
-            // need_matrix[i][j] = max_demand[i][j] - allocation[i][j];
+            need_matrix[i][j] = 0;
         }
     }
 
@@ -145,6 +146,7 @@ int rm_claim (int claim[])
             return -1;
         }
         // Update max_demand matrix with claim information
+        need_matrix[real_tid][i] = claim[i];
         max_demand[real_tid][i] = claim[i];
     }
     return 0;
@@ -152,6 +154,14 @@ int rm_claim (int claim[])
 
 int rm_request (int request[])
 {
+
+    for(int i = 0; i < num_resources; i++) {
+
+        if(request[i] > existing_res[i]) {
+            return -1;
+        }
+    }
+
     int allocate = 1;
     long tid = (long) pthread_self();
 
@@ -165,6 +175,14 @@ int rm_request (int request[])
 
     // First check whether the request can be granted in the first place
     pthread_mutex_lock(&lock);
+
+    // Initialize the request matrix
+
+    for(int i = 0; i < num_resources; i++) {
+
+        request_matrix[real_tid][i] = request[i];
+    }
+
     for(int i = 0; i < num_resources; i++){
 
         if(request[i] > available_res[i]) {
@@ -179,13 +197,14 @@ int rm_request (int request[])
 
         int allocation_copy[MAXP][MAXR];
         int available_res_copy[MAXR];
-        int need_matrix[MAXP][MAXR];
+        int need_matrix_copy[MAXP][MAXR];
 
         // Allocation
         for(int i = 0; i < num_threads; i++) {
             for (int j = 0; j < num_resources; j++) {
 
                 allocation_copy[i][j] = allocation[i][j];
+                need_matrix_copy[i][j] = need_matrix[i][j];
             }
         }
 
@@ -201,7 +220,7 @@ int rm_request (int request[])
         for(int i = 0; i < num_threads; i++) {
             for(int j = 0; j < num_resources; j++) {
 
-                need_matrix[i][j] = max_demand[i][j] - allocation_copy[i][j];
+                need_matrix_copy[i][j] = max_demand[i][j] - allocation_copy[i][j];
             }
         }
 
@@ -215,7 +234,7 @@ int rm_request (int request[])
                 for(int j = 0; j < num_resources; j++) {
 
                     // If already processed or need cannot be met, skip the thread
-                    if(available_res_copy[j] < need_matrix[i][j] || need_matrix[i][j] < 0) {
+                    if(available_res_copy[j] < need_matrix_copy[i][j] || need_matrix_copy[i][j] < 0) {
                         can_process = 0;
                         already_checked += 1;
                         break;
@@ -229,7 +248,7 @@ int rm_request (int request[])
                     for(int j = 0; j < num_resources; j++) {
 
                         // Give -1 for the need matrix entries to prevent processing again
-                        need_matrix[i][j] = -1;
+                        need_matrix_copy[i][j] = -1;
                         // Update available resources (Assume the process is finished)
                         available_res_copy[j] += allocation_copy[i][j];
                     }
@@ -259,12 +278,12 @@ int rm_request (int request[])
 
         allocation[real_tid][i] += request[i];
         available_res[i] -= request[i];
+        need_matrix[real_tid][i] -= request[i];
+        request_matrix[real_tid][i] = -1;
     }
     pthread_mutex_unlock(&lock);
 
-    int ret = 0;
-
-    return(ret);
+    return 0;
 }
 
 
@@ -310,13 +329,140 @@ int rm_release (int release[])
 
 int rm_detection()
 {
-    int ret = 0;
+    pthread_mutex_lock(&lock);
 
-    return (ret);
+    // Create a copy of allocation and available matrices
+    int allocation_copy[MAXP][MAXR];
+    int available_res_copy[MAXR];
+    int request_matrix_copy[MAXP][MAXR];
+
+    // Allocation
+    for(int i = 0; i < num_threads; i++) {
+        for (int j = 0; j < num_resources; j++) {
+            allocation_copy[i][j] = allocation[i][j];
+            request_matrix_copy[i][j] = request_matrix[i][j];
+        }
+    }
+
+    // Copy available matrix
+    for(int k = 0; k < num_resources; k++) {
+        available_res_copy[k] = available_res[k];
+    }
+
+    int count = 0;
+    int already_checked = 0; // Used if there is a deadlock and no process can process
+    while(1) {
+    // Check if the new state is safe
+        for(int i = 0; i < num_threads; i++) {
+
+            int can_process = 1;
+            for(int j = 0; j < num_resources; j++) {
+
+                // If already processed or request cannot be met, skip the thread
+                if(available_res_copy[j] < request_matrix_copy[i][j] || request_matrix_copy[i][j] < 0) {
+                    can_process = 0;
+                    already_checked += 1;
+                    break;
+                }
+            }
+
+            // If can process, update the new matrices
+            if(can_process) {
+                count += 1;
+                already_checked = 0;
+                for(int j = 0; j < num_resources; j++) {
+
+                    // Give -1 for the need matrix entries to prevent processing again
+                    request_matrix_copy[i][j] = -1;
+                    // Update available resources (Assume the process is finished)
+                    available_res_copy[j] += allocation_copy[i][j];
+                    }
+                }
+            }
+
+        // If all threads have processed or there is a deadlock, leave the loop
+        if(count == num_threads || already_checked >= num_threads)
+            break;
+    }
+
+    pthread_mutex_unlock(&lock);
+
+    return num_threads - count;
+
 }
 
 
 void rm_print_state (char hmsg[])
 {
-    return;
+    printf("\n###########################\n");
+    printf("%s\n", hmsg);
+    printf("###########################\n");
+    printf("Exist:\n");
+    for (int i = 0; i < num_resources; i++) {
+        printf("\tR%d ", i);
+    }
+    printf("\n");
+    for (int i = 0; i < num_resources; i++) {
+        printf("\t%d ", existing_res[i]);
+    }
+    printf("\n");
+    printf("\nAvailable:\n");
+    for (int i = 0; i < num_resources; i++) {
+        printf("\tR%d ", i);
+    }
+    printf("\n");
+    for (int i = 0; i < num_resources; i++) {
+        printf("\t%d ", available_res[i]);
+    }
+    printf("\n");
+    printf("\nAllocation:\n");
+    for (int i = 0; i < num_resources; i++) {
+        printf("\tR%d ", i);
+    }
+    printf("\n");
+    for (int i = 0; i < num_threads; i++) {
+        printf("T%d: ", i);
+        for (int j = 0; j < num_resources; j++) {
+            printf("\t%d ", allocation[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\nRequest:\n");
+    for (int i = 0; i < num_resources; i++) {
+        printf("\tR%d ", i);
+    }
+    printf("\n");
+    for (int i = 0; i < num_threads; i++) {
+        printf("T%d: ", i);
+        for (int j = 0; j < num_resources; j++) {
+            printf("\t%d ", request_matrix[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\nMaxDemand:\n");
+    for (int i = 0; i < num_resources; i++) {
+        printf("\tR%d ", i);
+    }
+    printf("\n");
+    for (int i = 0; i < num_threads; i++) {
+        printf("T%d: ", i);
+        for (int j = 0; j < num_resources; j++) {
+            printf("\t%d ", max_demand[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+    printf("Need:\n");
+    for (int i = 0; i < num_resources; i++) {
+        printf("\tR%d ", i);
+    }
+    printf("\n");
+    for (int i = 0; i < num_threads; i++) {
+        printf("T%d: ", i);
+        for (int j = 0; j < num_resources; j++) {
+            printf("\t%d ", need_matrix[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
 }
