@@ -177,6 +177,9 @@ int rm_request (int request[])
     // First check whether the request can be granted in the first place
     pthread_mutex_lock(&lock);
 
+    allocate_calculation:
+    allocate = 1;
+
     // Initialize the request matrix
 
     for(int i = 0; i < num_resources; i++) {
@@ -190,6 +193,7 @@ int rm_request (int request[])
             allocate = 0;
         }
     }
+
 
     // If the request can be granted and avoidance is used, check if the new state is safe
     if(deadlock_avoidance && allocate) {
@@ -298,7 +302,7 @@ int rm_request (int request[])
 
 
 
-        
+
         int count = 0;
         int already_checked = 0; // Used if there is a deadlock and no process can process
         while(1) {
@@ -405,14 +409,14 @@ int rm_request (int request[])
                 }
             }
 
-            
+
 
             // If all threads have processed or there is a deadlock, leave the loop
             if(count == num_threads || already_checked >= num_threads)
                 break;
 
         }
-        
+
 
 
         printf("count is %d", count);
@@ -428,6 +432,8 @@ int rm_request (int request[])
         printf("Waiting\n\n");
         threads[real_tid].state = WAITING;
         pthread_cond_wait(&conds[real_tid], &lock);
+        printf("\n\nCheck go to\n\n");
+        goto allocate_calculation;
     }
 
     rm_print_state("Debug1");
@@ -472,11 +478,12 @@ int rm_release (int release[])
         }
 
         available_res[i] += release[i];
+        need_matrix[real_tid][i] += release[i];
         allocation[real_tid][i] -= release[i];
     }
 
     for (int i = 0; i < num_threads; i++) {
-        
+
         pthread_cond_signal(&conds[i]);
     }
 
