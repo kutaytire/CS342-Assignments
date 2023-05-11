@@ -31,7 +31,7 @@ thread_info threads[MAXP];
 
 //..... other definitions/variables .....
 pthread_mutex_t lock;
-pthread_cond_t* conds;
+pthread_cond_t conds[MAXP];
 
 // end of global variables
 
@@ -74,11 +74,9 @@ int rm_init(int p_count, int r_count, int r_exist[],  int avoid)
         return -1; // Error: Mutex lock initialization failed
     }
 
-    conds = malloc(sizeof(pthread_cond_t) * num_threads);
-
-        for (int i = 0; i < num_threads; i++) {
-            pthread_cond_init(&conds[i], NULL);
-        }
+    for (int i = 0; i < num_threads; i++) {
+        pthread_cond_init(&conds[i], NULL);
+    }
 
     return 0;
 }
