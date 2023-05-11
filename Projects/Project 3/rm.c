@@ -104,12 +104,7 @@ int rm_thread_started(int tid)
 
 int rm_thread_ended()
 {
-    printf("Entered");
     long tid = (long) pthread_self();
-    if (tid < 0 || tid >= num_threads) {
-        return -1; // invalid tid or thread not started
-    }
-    printf("Step1");
     int real_tid = -1;
     for (int i = 0; i < num_threads; i++) {
         if ((long) threads[i].tid == tid) {
@@ -118,28 +113,24 @@ int rm_thread_ended()
         }
     }
 
-    printf("Now here!");
-
     pthread_mutex_lock(&lock);
+
     // Free all the resources held by the thread
-    int i;
-
-    printf("Executing here!");
-
-    for (i = 0; i < num_resources; i++) {
+    for (int i = 0; i < num_resources; i++) {
         available_res[i] += allocation[real_tid][i];
         allocation[real_tid][i] = 0;
     }
 
-    for(int i = 0; i < num_resources; i++) {
-
+    // Wake up all the threads that are waiting for resources
+    for (int i = 0; i < num_threads; i++) {
         pthread_cond_signal(&conds[i]);
     }
-    
+
     pthread_mutex_unlock(&lock);
 
     // Mark the thread as terminated
-    threads[tid].state = TERMINATED;
+    threads[real_tid].state = TERMINATED;
+    printf("\n\nThread %d terminated\n", real_tid);
     return 0;
 }
 
