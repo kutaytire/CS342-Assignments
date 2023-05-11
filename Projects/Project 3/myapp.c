@@ -66,7 +66,11 @@ void *threadfunc0 (void *a)
     // rm_release (request1);
     // rm_release (request2);
 
+    printf("Thread ended execution time 0!");
+
     rm_thread_ended();
+    rm_print_state("This one is for 0");
+
     pthread_exit(NULL);
 }
 
@@ -88,7 +92,7 @@ void *threadfunc1 (void *a)
     pr (tid, "REQ", NUMR, request1);
     rm_request (request1);
 
-    sleep(20);
+    sleep(15);
 
     setarray(request2, NUMR, 1,0,0);
     pr (tid, "REQ", NUMR, request2);
@@ -97,7 +101,11 @@ void *threadfunc1 (void *a)
     // rm_release (request1);
     // rm_release (request2);
 
+    printf("Thread ended execution time 1!");
+
     rm_thread_ended ();
+
+    rm_print_state("This one is for 1");
     pthread_exit(NULL);
 }
 
@@ -128,7 +136,10 @@ void *threadfunc2 (void *a)
     // rm_release (request1);
     // rm_release (request2);
 
+    printf("Thread ended execution time 2!");
+
     rm_thread_ended ();
+    rm_print_state("This one is for 2");
     pthread_exit(NULL);
 }
 
@@ -159,7 +170,11 @@ void *threadfunc3 (void *a)
     // rm_release (request1);
     // rm_release (request2);
 
+    printf("Thread ended execution time 3!");
+
     rm_thread_ended ();
+
+    rm_print_state("This one is for 3");
     pthread_exit(NULL);
 }
 
@@ -181,7 +196,7 @@ void *threadfunc4 (void *a)
     pr (tid, "REQ", NUMR, request1);
     rm_request (request1);
 
-    sleep(15);
+    sleep(10);
 
     setarray(request2, NUMR, 3,3,0);
     pr (tid, "REQ", NUMR, request2);
@@ -190,7 +205,11 @@ void *threadfunc4 (void *a)
     // rm_release (request1);
     // rm_release (request2);
 
+    printf("Thread ended execution time 4!");
+
     rm_thread_ended ();
+
+    rm_print_state("This one is for 4");
     pthread_exit(NULL);
 }
 
@@ -260,9 +279,8 @@ int main(int argc, char **argv)
     if (ret == 0) {
         for (i = 0; i < NUMP; ++i) {
             pthread_join (threadArray[i], NULL);
+            rm_print_state("After thread is finished\n");
             printf ("joined\n");
         }
     }
 }
-
-

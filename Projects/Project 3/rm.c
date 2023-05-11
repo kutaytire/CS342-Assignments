@@ -104,11 +104,12 @@ int rm_thread_started(int tid)
 
 int rm_thread_ended()
 {
+    printf("Entered");
     long tid = (long) pthread_self();
-    if (tid < 0 || tid >= num_threads || threads[tid].state == NOT_STARTED) {
+    if (tid < 0 || tid >= num_threads) {
         return -1; // invalid tid or thread not started
     }
-
+    printf("Step1");
     int real_tid = -1;
     for (int i = 0; i < num_threads; i++) {
         if ((long) threads[i].tid == tid) {
@@ -117,11 +118,25 @@ int rm_thread_ended()
         }
     }
 
+    printf("Now here!");
+
+    pthread_mutex_lock(&lock);
     // Free all the resources held by the thread
     int i;
+
+    printf("Executing here!");
+
     for (i = 0; i < num_resources; i++) {
-        available_res[i] += max_demand[tid][i];
+        available_res[i] += allocation[real_tid][i];
+        allocation[real_tid][i] = 0;
     }
+
+    for(int i = 0; i < num_resources; i++) {
+
+        pthread_cond_signal(&conds[i]);
+    }
+    
+    pthread_mutex_unlock(&lock);
 
     // Mark the thread as terminated
     threads[tid].state = TERMINATED;
@@ -141,14 +156,17 @@ int rm_claim (int claim[])
         }
     }
 
-    for (int i = 0; i < num_resources; i++) {
-        // Check if claim is valid
-        if (claim[i] > existing_res[i]) {
-            return -1;
+    if(deadlock_avoidance) {
+
+        for (int i = 0; i < num_resources; i++) {
+            // Check if claim is valid
+            if (claim[i] > existing_res[i]) {
+                return -1;
+            }
+            // Update max_demand matrix with claim information
+            need_matrix[real_tid][i] = claim[i];
+            max_demand[real_tid][i] = claim[i];
         }
-        // Update max_demand matrix with claim information
-        need_matrix[real_tid][i] = claim[i];
-        max_demand[real_tid][i] = claim[i];
     }
     return 0;
 }
@@ -298,11 +316,6 @@ int rm_request (int request[])
 
 
 
-
-
-
-
-
         int count = 0;
         int already_checked = 0; // Used if there is a deadlock and no process can process
         while(1) {
@@ -319,8 +332,6 @@ int rm_request (int request[])
                         break;
                     }
                 }
-
-                printf("value of can process is %d\n", can_process);
 
                 // If can process, update the new matrices
                 if(can_process) {
@@ -442,7 +453,10 @@ int rm_request (int request[])
 
         allocation[real_tid][i] += request[i];
         available_res[i] -= request[i];
-        need_matrix[real_tid][i] -= request[i];
+
+        if(deadlock_avoidance) {
+            need_matrix[real_tid][i] -= request[i];
+        }
         request_matrix[real_tid][i] = 0;
     }
 
@@ -478,7 +492,9 @@ int rm_release (int release[])
         }
 
         available_res[i] += release[i];
-        need_matrix[real_tid][i] += release[i];
+        if(deadlock_avoidance) {
+            need_matrix[real_tid][i] += release[i];
+        }
         allocation[real_tid][i] -= release[i];
     }
 
