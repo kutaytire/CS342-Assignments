@@ -65,6 +65,7 @@ int rm_init(int p_count, int r_count, int r_exist[],  int avoid)
             max_demand[i][j] = 0;
             allocation[i][j] = 0;
             need_matrix[i][j] = 0;
+            request_matrix[i][j] = 0;
         }
     }
 
@@ -214,16 +215,90 @@ int rm_request (int request[])
 
             allocation_copy[real_tid][k] += request[k];
             available_res_copy[k] -= request[k];
+            need_matrix_copy[real_tid][k] -= request[k];
         }
 
-        // Create the need matrix
-        for(int i = 0; i < num_threads; i++) {
-            for(int j = 0; j < num_resources; j++) {
 
-                need_matrix_copy[i][j] = max_demand[i][j] - allocation_copy[i][j];
+        printf("\n###########################\n");
+        printf("Hypothetic state suppose that we granted\n");
+        printf("###########################\n");
+        printf("Exist:\n");
+        for (int i = 0; i < num_resources; i++) {
+            printf("\tR%d ", i);
+        }
+        printf("\n");
+        for (int i = 0; i < num_resources; i++) {
+            printf("\t%d ", existing_res[i]);
+        }
+        printf("\n");
+        printf("\nAvailable:\n");
+        for (int i = 0; i < num_resources; i++) {
+            printf("\tR%d ", i);
+        }
+        printf("\n");
+        for (int i = 0; i < num_resources; i++) {
+            printf("\t%d ", available_res_copy[i]);
+        }
+        printf("\n");
+        printf("\nAllocation:\n");
+        for (int i = 0; i < num_resources; i++) {
+            printf("\tR%d ", i);
+        }
+        printf("\n");
+        for (int i = 0; i < num_threads; i++) {
+            printf("T%d: ", i);
+            for (int j = 0; j < num_resources; j++) {
+                printf("\t%d ", allocation_copy[i][j]);
             }
+            printf("\n");
         }
+        printf("\nRequest:\n");
+        for (int i = 0; i < num_resources; i++) {
+            printf("\tR%d ", i);
+        }
+        printf("\n");
+        for (int i = 0; i < num_threads; i++) {
+            printf("T%d: ", i);
+            for (int j = 0; j < num_resources; j++) {
+                printf("\t%d ", request_matrix[i][j]);
+            }
+            printf("\n");
+        }
+        printf("\nMaxDemand:\n");
+        for (int i = 0; i < num_resources; i++) {
+            printf("\tR%d ", i);
+        }
+        printf("\n");
+        for (int i = 0; i < num_threads; i++) {
+            printf("T%d: ", i);
+            for (int j = 0; j < num_resources; j++) {
+                printf("\t%d ", max_demand[i][j]);
+            }
+            printf("\n");
+        }
+        printf("\n");
+        printf("Need:\n");
+        for (int i = 0; i < num_resources; i++) {
+            printf("\tR%d ", i);
+        }
+        printf("\n");
+        for (int i = 0; i < num_threads; i++) {
+            printf("T%d: ", i);
+            for (int j = 0; j < num_resources; j++) {
+                printf("\t%d ", need_matrix_copy[i][j]);
+            }
+            printf("\n");
+        }
+        printf("\n");
 
+
+
+
+
+
+
+
+        
         int count = 0;
         int already_checked = 0; // Used if there is a deadlock and no process can process
         while(1) {
@@ -241,6 +316,8 @@ int rm_request (int request[])
                     }
                 }
 
+                printf("value of can process is %d\n", can_process);
+
                 // If can process, update the new matrices
                 if(can_process) {
                     count += 1;
@@ -251,36 +328,120 @@ int rm_request (int request[])
                         need_matrix_copy[i][j] = -1;
                         // Update available resources (Assume the process is finished)
                         available_res_copy[j] += allocation_copy[i][j];
+                        allocation_copy[i][j] = 0;
                     }
+
+                    printf("\n###########################\n");
+                    printf("Hypothetic state suppose that we granted to thread %d\n", i);
+                    printf("###########################\n");
+                    printf("Exist:\n");
+                    for (int i = 0; i < num_resources; i++) {
+                        printf("\tR%d ", i);
+                    }
+                    printf("\n");
+                    for (int i = 0; i < num_resources; i++) {
+                        printf("\t%d ", existing_res[i]);
+                    }
+                    printf("\n");
+                    printf("\nAvailable:\n");
+                    for (int i = 0; i < num_resources; i++) {
+                        printf("\tR%d ", i);
+                    }
+                    printf("\n");
+                    for (int i = 0; i < num_resources; i++) {
+                        printf("\t%d ", available_res_copy[i]);
+                    }
+                    printf("\n");
+                    printf("\nAllocation:\n");
+                    for (int i = 0; i < num_resources; i++) {
+                        printf("\tR%d ", i);
+                    }
+                    printf("\n");
+                    for (int i = 0; i < num_threads; i++) {
+                        printf("T%d: ", i);
+                        for (int j = 0; j < num_resources; j++) {
+                            printf("\t%d ", allocation_copy[i][j]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\nRequest:\n");
+                    for (int i = 0; i < num_resources; i++) {
+                        printf("\tR%d ", i);
+                    }
+                    printf("\n");
+                    for (int i = 0; i < num_threads; i++) {
+                        printf("T%d: ", i);
+                        for (int j = 0; j < num_resources; j++) {
+                            printf("\t%d ", request_matrix[i][j]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\nMaxDemand:\n");
+                    for (int i = 0; i < num_resources; i++) {
+                        printf("\tR%d ", i);
+                    }
+                    printf("\n");
+                    for (int i = 0; i < num_threads; i++) {
+                        printf("T%d: ", i);
+                        for (int j = 0; j < num_resources; j++) {
+                            printf("\t%d ", max_demand[i][j]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\n");
+                    printf("Need:\n");
+                    for (int i = 0; i < num_resources; i++) {
+                        printf("\tR%d ", i);
+                    }
+                    printf("\n");
+                    for (int i = 0; i < num_threads; i++) {
+                        printf("T%d: ", i);
+                        for (int j = 0; j < num_resources; j++) {
+                            printf("\t%d ", need_matrix_copy[i][j]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\n");
                 }
             }
+
+            
 
             // If all threads have processed or there is a deadlock, leave the loop
             if(count == num_threads || already_checked >= num_threads)
                 break;
 
         }
+        
 
-        // Check if the available resources are equal to existing resources
-        for (int i = 0; i < num_resources; i++) {
 
-            if(existing_res[i] != available_res_copy[i])
-                allocate = 0;
+        printf("count is %d", count);
+        printf("num of threads is %d", num_threads);
+
+        if(count != num_threads) {
+            allocate = 0;
+            printf("Possible deadlock detected\n");
         }
     }
 
     while (!allocate) {
+        printf("Waiting\n\n");
         threads[real_tid].state = WAITING;
         pthread_cond_wait(&conds[real_tid], &lock);
     }
+
+    rm_print_state("Debug1");
 
     for (int i = 0; i < num_resources; i++) {
 
         allocation[real_tid][i] += request[i];
         available_res[i] -= request[i];
         need_matrix[real_tid][i] -= request[i];
-        request_matrix[real_tid][i] = -1;
+        request_matrix[real_tid][i] = 0;
     }
+
+    rm_print_state("After allocation");
+
     pthread_mutex_unlock(&lock);
 
     return 0;
@@ -315,11 +476,11 @@ int rm_release (int release[])
     }
 
     for (int i = 0; i < num_threads; i++) {
-        if (threads[i].state == WAITING && !rm_request(allocation[i])) {
-            threads[i].state = RUNNING;
-            pthread_cond_signal(&conds[i]);
-        }
+        
+        pthread_cond_signal(&conds[i]);
     }
+
+    rm_print_state("After release");
 
     pthread_mutex_unlock(&lock);
 
