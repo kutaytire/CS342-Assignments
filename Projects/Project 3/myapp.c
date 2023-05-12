@@ -86,7 +86,6 @@ void *threadfunc1 (void *a)
     tid = *((int*)a);
     rm_thread_started (tid);
 
-    sleep(1);
     setarray(claim, NUMR, 3, 2, 2, 1, 3);
     rm_claim (claim);
 
@@ -125,7 +124,6 @@ void *threadfunc2 (void *a)
     tid = *((int*)a);
     rm_thread_started (tid);
 
-    sleep(1.5);
     setarray(claim, NUMR, 9, 0, 2, 3, 4);
     rm_claim (claim);
 
@@ -162,7 +160,6 @@ void *threadfunc3 (void *a)
     tid = *((int*)a);
     rm_thread_started (tid);
 
-    sleep(0.5);
     setarray(claim, NUMR, 2, 2, 2, 2, 2);
     rm_claim (claim);
 
@@ -180,7 +177,7 @@ void *threadfunc3 (void *a)
 
     printf("Request 1 is released by thread 3\n");
     rm_release (request1);
-  
+
     printf("Request 2 is released by thread 3\n");
     rm_release (request2);
 
