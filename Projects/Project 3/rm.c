@@ -229,7 +229,7 @@ int rm_request (int request[])
             need_matrix_copy[real_tid][k] -= request[k];
         }
 
-    
+
         int count = 0;
         int already_checked = 0; // Used if there is a deadlock and no process can process
         while(1) {
@@ -281,7 +281,7 @@ int rm_request (int request[])
         goto allocate_calculation;
     }
 
-    printf("Grant the request and allocate the resources to thread %d \n.", real_tid);
+    printf("Grant the request and allocate the resources to thread %d.\n", real_tid);
     for (int i = 0; i < num_resources; i++) {
 
         allocation[real_tid][i] += request[i];
@@ -329,7 +329,7 @@ int rm_release (int release[])
         if(deadlock_avoidance) {
             need_matrix[real_tid][i] += release[i];
         }
-        
+
     }
 
     for (int i = 0; i < num_threads; i++) {
