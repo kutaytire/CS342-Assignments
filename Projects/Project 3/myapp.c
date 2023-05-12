@@ -6,11 +6,11 @@
 #include <stdarg.h>
 #include "rm.h"
 
-#define NUMR 3        // number of resource types
-#define NUMP 5        // number of threads
+#define NUMR 5        // number of resource types
+#define NUMP 4        // number of threads
 
 int AVOID = 1;
-int exist[3] =  {10,5,7};  // resources existing in the system
+int exist[5] =  {10,5,7,3,4};  // resources existing in the system
 
 void pr (int tid, char astr[], int m, int r[])
 {
@@ -50,27 +50,28 @@ void *threadfunc0 (void *a)
     tid = *((int*)a);
     rm_thread_started (tid);
 
-    setarray(claim, NUMR, 7, 5, 3);
+    setarray(claim, NUMR, 7, 5, 3, 2, 4);
     rm_claim (claim);
 
-    setarray(request1, NUMR, 0, 1, 0);
+    setarray(request1, NUMR, 3, 1, 0, 2, 2);
     pr (tid, "REQ", NUMR, request1);
     rm_request (request1);
 
     sleep(4);
 
-    // setarray(request2, NUMR, 3);
-    // pr (tid, "REQ", NUMR, request2);
-    // rm_request (request2);
+    setarray(request2, NUMR, 0, 2, 0, 0, 2);
+    pr (tid, "REQ", NUMR, request2);
+    rm_request (request2);
 
-    // rm_release (request1);
-    // rm_release (request2);
+    sleep(2);
 
-    printf("Thread ended execution time 0!");
+    printf("Request 1 is released by thread 0\n");
+    rm_release (request1);
+
+    printf("Request 2 is released by thread 0\n");
+    rm_release (request2);
 
     rm_thread_ended();
-    rm_print_state("This one is for 0");
-
     pthread_exit(NULL);
 }
 
@@ -85,27 +86,30 @@ void *threadfunc1 (void *a)
     tid = *((int*)a);
     rm_thread_started (tid);
 
-    setarray(claim, NUMR, 3, 2, 2);
+    setarray(claim, NUMR, 3, 2, 2, 1, 3);
     rm_claim (claim);
 
-    setarray(request1, NUMR, 2, 0, 0);
+    setarray(request1, NUMR, 2, 0, 2, 1, 0);
     pr (tid, "REQ", NUMR, request1);
     rm_request (request1);
 
-    sleep(15);
+    sleep(4);
 
-    setarray(request2, NUMR, 1,0,0);
+    setarray(request2, NUMR, 1, 0, 0, 0, 1);
     pr (tid, "REQ", NUMR, request2);
     rm_request (request2);
 
-    // rm_release (request1);
-    // rm_release (request2);
+    sleep(4);
 
-    printf("Thread ended execution time 1!");
+    printf("Request 1 is released by thread 1\n");
+    rm_release (request1);
+
+    printf("Request 2 is released by thread 1\n");
+    rm_release (request2);
 
     rm_thread_ended ();
 
-    rm_print_state("This one is for 1");
+    //rm_print_state("Thread 1 is now ended and the new state is:");
     pthread_exit(NULL);
 }
 
@@ -120,26 +124,28 @@ void *threadfunc2 (void *a)
     tid = *((int*)a);
     rm_thread_started (tid);
 
-    setarray(claim, NUMR, 9, 0, 2);
+    setarray(claim, NUMR, 9, 0, 2, 3, 4);
     rm_claim (claim);
 
-    setarray(request1, NUMR, 3, 0, 2);
+    setarray(request1, NUMR, 3, 0, 2, 0, 1);
     pr (tid, "REQ", NUMR, request1);
     rm_request (request1);
 
+    sleep(4);
+
+    setarray(request2, NUMR, 1, 0, 0, 0, 3);
+    pr (tid, "REQ", NUMR, request2);
+    rm_request (request2);
+
     sleep(2);
 
-    // setarray(request2, NUMR, 4);
-    // pr (tid, "REQ", NUMR, request2);
-    // rm_request (request2);
+    printf("Request 1 is released by thread 2\n");
+    rm_release (request1);
 
-    // rm_release (request1);
-    // rm_release (request2);
-
-    printf("Thread ended execution time 2!");
-
+    printf("Request 2 is released by thread 2\n");
+    rm_release (request2);
     rm_thread_ended ();
-    rm_print_state("This one is for 2");
+
     pthread_exit(NULL);
 }
 
@@ -154,62 +160,28 @@ void *threadfunc3 (void *a)
     tid = *((int*)a);
     rm_thread_started (tid);
 
-    setarray(claim, NUMR, 2, 2, 2);
+    setarray(claim, NUMR, 2, 2, 2, 2, 2);
     rm_claim (claim);
 
-    setarray(request1, NUMR, 2, 1, 1);
+    setarray(request1, NUMR, 2, 1, 1, 0, 0);
     pr (tid, "REQ", NUMR, request1);
     rm_request (request1);
 
-    sleep(2);
+    sleep(3);
 
-    // setarray(request2, NUMR, 4);
-    // pr (tid, "REQ", NUMR, request2);
-    // rm_request (request2);
-
-    // rm_release (request1);
-    // rm_release (request2);
-
-    printf("Thread ended execution time 3!");
-
-    rm_thread_ended ();
-
-    rm_print_state("This one is for 3");
-    pthread_exit(NULL);
-}
-
-// t4
-void *threadfunc4 (void *a)
-{
-    int tid;
-    int request1[MAXR];
-    int request2[MAXR];
-    int claim[MAXR];
-
-    tid = *((int*)a);
-    rm_thread_started (tid);
-
-    setarray(claim, NUMR, 4, 3, 3);
-    rm_claim (claim);
-
-    setarray(request1, NUMR, 0, 0, 2);
-    pr (tid, "REQ", NUMR, request1);
-    rm_request (request1);
-
-    sleep(10);
-
-    setarray(request2, NUMR, 3,3,0);
+    setarray(request2, NUMR, 0,0,0,1,1);
     pr (tid, "REQ", NUMR, request2);
     rm_request (request2);
 
-    // rm_release (request1);
-    // rm_release (request2);
+    sleep(2);
 
-    printf("Thread ended execution time 4!");
+    printf("Request 1 is released by thread 3\n");
+    rm_release (request1);
+  
+    printf("Request 2 is released by thread 3\n");
+    rm_release (request2);
 
     rm_thread_ended ();
-
-    rm_print_state("This one is for 4");
     pthread_exit(NULL);
 }
 
@@ -257,21 +229,17 @@ int main(int argc, char **argv)
                     (void *) threadfunc3, (void *)
                     (void*)&tids[i]);
 
-    i = 4;  // we select a tid for the thread
-    tids[i] = i;
-    pthread_create (&(threadArray[i]), NULL,
-                    (void *) threadfunc4, (void *)
-                    (void*)&tids[i]);
-
     count = 0;
     while ( count < 10) {
-        sleep(5);
-        rm_print_state("The current state");
+        sleep(2);
+        rm_print_state("The current state is:");
         ret = rm_detection();
-        printf("\n\nrm_detection=%d\n\n", ret);
         if (ret > 0) {
-            printf ("deadlock detected, count=%d\n", ret);
-            rm_print_state("state after deadlock");
+            printf ("A deadlock is detected, the number of deadlocked processes is %d.\n", ret);
+            rm_print_state("The state after deadlock is:");
+        }
+        else {
+            printf("No deadlock is detected.\n\n");
         }
         count++;
     }
@@ -279,7 +247,6 @@ int main(int argc, char **argv)
     if (ret == 0) {
         for (i = 0; i < NUMP; ++i) {
             pthread_join (threadArray[i], NULL);
-            rm_print_state("After thread is finished\n");
             printf ("joined\n");
         }
     }

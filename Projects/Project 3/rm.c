@@ -129,7 +129,6 @@ int rm_thread_ended()
 
     // Mark the thread as terminated
     threads[real_tid].state = TERMINATED;
-    printf("\n\nThread %d terminated\n", real_tid);
     return 0;
 }
 
@@ -230,82 +229,7 @@ int rm_request (int request[])
             need_matrix_copy[real_tid][k] -= request[k];
         }
 
-
-        printf("\n###########################\n");
-        printf("Hypothetic state suppose that we granted\n");
-        printf("###########################\n");
-        printf("Exist:\n");
-        for (int i = 0; i < num_resources; i++) {
-            printf("\tR%d ", i);
-        }
-        printf("\n");
-        for (int i = 0; i < num_resources; i++) {
-            printf("\t%d ", existing_res[i]);
-        }
-        printf("\n");
-        printf("\nAvailable:\n");
-        for (int i = 0; i < num_resources; i++) {
-            printf("\tR%d ", i);
-        }
-        printf("\n");
-        for (int i = 0; i < num_resources; i++) {
-            printf("\t%d ", available_res_copy[i]);
-        }
-        printf("\n");
-        printf("\nAllocation:\n");
-        for (int i = 0; i < num_resources; i++) {
-            printf("\tR%d ", i);
-        }
-        printf("\n");
-        for (int i = 0; i < num_threads; i++) {
-            printf("T%d: ", i);
-            for (int j = 0; j < num_resources; j++) {
-                printf("\t%d ", allocation_copy[i][j]);
-            }
-            printf("\n");
-        }
-        printf("\nRequest:\n");
-        for (int i = 0; i < num_resources; i++) {
-            printf("\tR%d ", i);
-        }
-        printf("\n");
-        for (int i = 0; i < num_threads; i++) {
-            printf("T%d: ", i);
-            for (int j = 0; j < num_resources; j++) {
-                printf("\t%d ", request_matrix[i][j]);
-            }
-            printf("\n");
-        }
-        printf("\nMaxDemand:\n");
-        for (int i = 0; i < num_resources; i++) {
-            printf("\tR%d ", i);
-        }
-        printf("\n");
-        for (int i = 0; i < num_threads; i++) {
-            printf("T%d: ", i);
-            for (int j = 0; j < num_resources; j++) {
-                printf("\t%d ", max_demand[i][j]);
-            }
-            printf("\n");
-        }
-        printf("\n");
-        printf("Need:\n");
-        for (int i = 0; i < num_resources; i++) {
-            printf("\tR%d ", i);
-        }
-        printf("\n");
-        for (int i = 0; i < num_threads; i++) {
-            printf("T%d: ", i);
-            for (int j = 0; j < num_resources; j++) {
-                printf("\t%d ", need_matrix_copy[i][j]);
-            }
-            printf("\n");
-        }
-        printf("\n");
-
-
-
-
+    
         int count = 0;
         int already_checked = 0; // Used if there is a deadlock and no process can process
         while(1) {
@@ -335,82 +259,8 @@ int rm_request (int request[])
                         available_res_copy[j] += allocation_copy[i][j];
                         allocation_copy[i][j] = 0;
                     }
-
-                    printf("\n###########################\n");
-                    printf("Hypothetic state suppose that we granted to thread %d\n", i);
-                    printf("###########################\n");
-                    printf("Exist:\n");
-                    for (int i = 0; i < num_resources; i++) {
-                        printf("\tR%d ", i);
-                    }
-                    printf("\n");
-                    for (int i = 0; i < num_resources; i++) {
-                        printf("\t%d ", existing_res[i]);
-                    }
-                    printf("\n");
-                    printf("\nAvailable:\n");
-                    for (int i = 0; i < num_resources; i++) {
-                        printf("\tR%d ", i);
-                    }
-                    printf("\n");
-                    for (int i = 0; i < num_resources; i++) {
-                        printf("\t%d ", available_res_copy[i]);
-                    }
-                    printf("\n");
-                    printf("\nAllocation:\n");
-                    for (int i = 0; i < num_resources; i++) {
-                        printf("\tR%d ", i);
-                    }
-                    printf("\n");
-                    for (int i = 0; i < num_threads; i++) {
-                        printf("T%d: ", i);
-                        for (int j = 0; j < num_resources; j++) {
-                            printf("\t%d ", allocation_copy[i][j]);
-                        }
-                        printf("\n");
-                    }
-                    printf("\nRequest:\n");
-                    for (int i = 0; i < num_resources; i++) {
-                        printf("\tR%d ", i);
-                    }
-                    printf("\n");
-                    for (int i = 0; i < num_threads; i++) {
-                        printf("T%d: ", i);
-                        for (int j = 0; j < num_resources; j++) {
-                            printf("\t%d ", request_matrix[i][j]);
-                        }
-                        printf("\n");
-                    }
-                    printf("\nMaxDemand:\n");
-                    for (int i = 0; i < num_resources; i++) {
-                        printf("\tR%d ", i);
-                    }
-                    printf("\n");
-                    for (int i = 0; i < num_threads; i++) {
-                        printf("T%d: ", i);
-                        for (int j = 0; j < num_resources; j++) {
-                            printf("\t%d ", max_demand[i][j]);
-                        }
-                        printf("\n");
-                    }
-                    printf("\n");
-                    printf("Need:\n");
-                    for (int i = 0; i < num_resources; i++) {
-                        printf("\tR%d ", i);
-                    }
-                    printf("\n");
-                    for (int i = 0; i < num_threads; i++) {
-                        printf("T%d: ", i);
-                        for (int j = 0; j < num_resources; j++) {
-                            printf("\t%d ", need_matrix_copy[i][j]);
-                        }
-                        printf("\n");
-                    }
-                    printf("\n");
                 }
             }
-
-
 
             // If all threads have processed or there is a deadlock, leave the loop
             if(count == num_threads || already_checked >= num_threads)
@@ -418,27 +268,20 @@ int rm_request (int request[])
 
         }
 
-
-
-        printf("count is %d", count);
-        printf("num of threads is %d", num_threads);
-
         if(count != num_threads) {
             allocate = 0;
-            printf("Possible deadlock detected\n");
         }
     }
 
     while (!allocate) {
-        printf("Waiting\n\n");
+        printf("Possible deadlock is detected, the request cannot be granted to thread %d.\n", real_tid);
         threads[real_tid].state = WAITING;
         pthread_cond_wait(&conds[real_tid], &lock);
-        printf("\n\nCheck go to\n\n");
+        printf("\nCheck if the request can be granted to thread %d after release:\n", real_tid);
         goto allocate_calculation;
     }
 
-    rm_print_state("Debug1");
-
+    printf("Grant the request and allocate the resources to thread %d \n.", real_tid);
     for (int i = 0; i < num_resources; i++) {
 
         allocation[real_tid][i] += request[i];
@@ -450,7 +293,7 @@ int rm_request (int request[])
         request_matrix[real_tid][i] = 0;
     }
 
-    rm_print_state("After allocation");
+    //rm_print_state("After allocation the new state is:");
 
     pthread_mutex_unlock(&lock);
 
@@ -482,10 +325,11 @@ int rm_release (int release[])
         }
 
         available_res[i] += release[i];
+        allocation[real_tid][i] -= release[i];
         if(deadlock_avoidance) {
             need_matrix[real_tid][i] += release[i];
         }
-        allocation[real_tid][i] -= release[i];
+        
     }
 
     for (int i = 0; i < num_threads; i++) {
@@ -493,7 +337,7 @@ int rm_release (int release[])
         pthread_cond_signal(&conds[i]);
     }
 
-    rm_print_state("After release");
+    //rm_print_state("After release the new state is:");
 
     pthread_mutex_unlock(&lock);
 
