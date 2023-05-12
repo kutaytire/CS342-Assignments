@@ -116,6 +116,7 @@ int rm_thread_ended()
     // Free all the resources held by the thread
     for (int i = 0; i < num_resources; i++) {
         available_res[i] += allocation[real_tid][i];
+        need_matrix[real_tid][i] += allocation[real_tid][i];
         allocation[real_tid][i] = 0;
     }
 
