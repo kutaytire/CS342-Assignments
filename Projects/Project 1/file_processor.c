@@ -12,40 +12,15 @@ FreqTable* get_file_word_freq_table(char* file_name) {
     FreqTable* freq_table = new_freq_table(1);
 
     char current_word[MAX_WORD_LENGTH];
-    char c;
-    int i = 0;
+    const char* delimiters = " \n\t\r";
 
-    while (i < sizeof(current_word)) {
-        c = fgetc(file);
-        if (c == EOF) {
-            if (i != 0) {
-                current_word[i++] = '\0';
-                FreqRecord* fr = new_freq_record(current_word);
-                add_freq_record(freq_table, fr);
-                free(fr);
-            }
-
-            break;
-        }
-
-        if (c == '\t' || c == ' ' || c == '\n') {
-            if (i == 0) {
-                continue;
-            }
-
-            else {
-                current_word[i] = '\0';
-                FreqRecord* fr = new_freq_record(current_word);
-                add_freq_record(freq_table, fr);
-                free(fr);
-                // Reset the current word
-                i = 0;
-                strcpy(current_word, "");
-            }
-        }
-
-        else {
-            current_word[i++] = toupper(c);
+    while (fscanf(file, "%s", current_word) == 1) {
+        char* token = strtok(current_word, delimiters);
+        while (token != NULL) {
+            FreqRecord* fr = new_freq_record(current_word);
+            add_freq_record(freq_table, fr);
+            free(fr);
+            token = strtok(NULL, delimiters);
         }
     }
 
