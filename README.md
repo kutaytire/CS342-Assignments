@@ -10,8 +10,8 @@ All assignments are organized in the following order:
 
 ```txt
 Homework/
-├── Homework #1/
-└── Homework #2/
+├── Homework 1/
+└── Homework 2/
     ├── ...
     └── Homework2.pdf
 Projects/
